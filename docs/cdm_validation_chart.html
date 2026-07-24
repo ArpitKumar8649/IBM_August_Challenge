@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CDM Validation — OrbitWarden</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1: #fcfcfb; --page: #f9f9f7;
+    --text-primary: #0b0b0b; --text-secondary: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page); color: var(--text-primary);
+    max-width: 820px; margin: 0 auto; padding: 28px 20px 48px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1: #1a1a19; --page: #0d0d0d;
+      --text-primary: #ffffff; --text-secondary: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1: #1a1a19; --page: #0d0d0d;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--text-secondary); font-size: 13.5px; margin: 0 0 18px; }
+  .card { background: var(--surface-1); border: 1px solid var(--border);
+           border-radius: 12px; padding: 16px 12px 8px; }
+  svg { width: 100%; height: auto; display: block; }
+  .grid { stroke: var(--grid); stroke-width: 1; }
+  .axis { stroke: var(--axis); stroke-width: 1.5; }
+  .tick { fill: var(--muted); font-size: 11px; }
+  .axislabel { fill: var(--text-secondary); font-size: 12.5px; }
+  .legend { fill: var(--text-secondary); font-size: 12px; }
+  .diag { stroke: var(--muted); stroke-width: 2; stroke-dasharray: 6 4; }
+  .diaglabel { fill: var(--muted); font-size: 11px; }
+  .band { fill: var(--muted); opacity: 0.10; }
+  .pt { stroke: var(--surface-1); stroke-width: 2; cursor: pointer; }
+  .pt:hover { stroke-width: 3; }
+  .stats { display: flex; gap: 12px; flex-wrap: wrap; margin: 18px 0; }
+  .stat { background: var(--surface-1); border: 1px solid var(--border);
+           border-radius: 10px; padding: 12px 16px; flex: 1; min-width: 140px; }
+  .stat .v { font-size: 24px; font-weight: 650; }
+  .stat .l { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12.5px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+  th { color: var(--text-secondary); font-weight: 600; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  h2 { font-size: 15px; margin: 26px 0 8px; }
+  .note { color: var(--text-secondary); font-size: 12.5px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="viz-root">
+  <h1>SGP4 screening vs. precision CDM — miss-distance agreement</h1>
+  <p class="sub">11 real conjunctions replayed with era-correct TLEs · median ratio 1.07× · median ΔTCA 0.1 s</p>
+
+  <div class="stats">
+    <div class="stat"><div class="v">11/15</div><div class="l">Detection rate (73%)</div></div>
+    <div class="stat"><div class="v">1.07×</div><div class="l">Median miss ratio</div></div>
+    <div class="stat"><div class="v">0.1 s</div><div class="l">Median TCA error</div></div>
+    <div class="stat"><div class="v">3.1 s</div><div class="l">Max TCA error</div></div>
+  </div>
+
+  <div class="card"><svg viewBox="0 0 720 520" role="img" aria-label="Scatter of OrbitWarden predicted miss distance versus CDM reported miss distance">
+  <defs><clipPath id="plot"><rect x="76" y="70" width="614" height="372"/></clipPath></defs>
+  <line x1="103.3" y1="70" x2="103.3" y2="442" class="grid"/><line x1="76" y1="425.4" x2="690" y2="425.4" class="grid"/><text x="103.3" y="460" class="tick" text-anchor="middle">0.05</text><text x="66" y="429.4" class="tick" text-anchor="end">0.05</text><line x1="188.3" y1="70" x2="188.3" y2="442" class="grid"/><line x1="76" y1="374.0" x2="690" y2="374.0" class="grid"/><text x="188.3" y="460" class="tick" text-anchor="middle">0.1</text><text x="66" y="378.0" class="tick" text-anchor="end">0.1</text><line x1="273.2" y1="70" x2="273.2" y2="442" class="grid"/><line x1="76" y1="322.5" x2="690" y2="322.5" class="grid"/><text x="273.2" y="460" class="tick" text-anchor="middle">0.2</text><text x="66" y="326.5" class="tick" text-anchor="end">0.2</text><line x1="385.5" y1="70" x2="385.5" y2="442" class="grid"/><line x1="76" y1="254.5" x2="690" y2="254.5" class="grid"/><text x="385.5" y="460" class="tick" text-anchor="middle">0.5</text><text x="66" y="258.5" class="tick" text-anchor="end">0.5</text><line x1="470.4" y1="70" x2="470.4" y2="442" class="grid"/><line x1="76" y1="203.0" x2="690" y2="203.0" class="grid"/><text x="470.4" y="460" class="tick" text-anchor="middle">1.0</text><text x="66" y="207.0" class="tick" text-anchor="end">1.0</text><line x1="555.4" y1="70" x2="555.4" y2="442" class="grid"/><line x1="76" y1="151.6" x2="690" y2="151.6" class="grid"/><text x="555.4" y="460" class="tick" text-anchor="middle">2.0</text><text x="66" y="155.6" class="tick" text-anchor="end">2.0</text><line x1="667.7" y1="70" x2="667.7" y2="442" class="grid"/><line x1="76" y1="83.5" x2="690" y2="83.5" class="grid"/><text x="667.7" y="460" class="tick" text-anchor="middle">5.0</text><text x="66" y="87.5" class="tick" text-anchor="end">5.0</text>
+  <g clip-path="url(#plot)"><polygon points="76.0,390.5 605.1,70.0 690.0,121.5 160.9,442.0" class="band"/><line x1="76.0" y1="442.0" x2="690.0" y2="70.0" class="diag"/></g>
+  <g clip-path="url(#plot)"><circle cx="614.4" cy="124.9" r="6" class="pt" style="fill:#2a78d6" data-type="ROCKET BODY"><title>SL-12 R/B(2) vs DELTA 2 R/B(2) | CDM: 3.238 km, Ours: 2.865 km, ratio 0.88x, dTCA 3.1s</title></circle><circle cx="611.7" cy="112.1" r="6" class="pt" style="fill:#1baf7a" data-type="PAYLOAD"><title>GORIZONT 20 vs NIGCOMSAT 1 | CDM: 3.167 km, Ours: 3.403 km, ratio 1.07x, dTCA 0.0s</title></circle><circle cx="614.4" cy="124.9" r="6" class="pt" style="fill:#2a78d6" data-type="ROCKET BODY"><title>DELTA 2 R/B(2) vs SL-12 R/B(2) | CDM: 3.238 km, Ours: 2.865 km, ratio 0.88x, dTCA 3.1s</title></circle><circle cx="611.7" cy="112.1" r="6" class="pt" style="fill:#1baf7a" data-type="PAYLOAD"><title>NIGCOMSAT 1 vs GORIZONT 20 | CDM: 3.167 km, Ours: 3.403 km, ratio 1.07x, dTCA 0.0s</title></circle><circle cx="614.5" cy="100.2" r="6" class="pt" style="fill:#eb6834" data-type="DEBRIS"><title>BREEZE-M DEB (TANK) vs CZ-3B R/B | CDM: 3.239 km, Ours: 3.997 km, ratio 1.23x, dTCA 0.4s</title></circle><circle cx="614.5" cy="100.2" r="6" class="pt" style="fill:#2a78d6" data-type="ROCKET BODY"><title>CZ-3B R/B vs BREEZE-M DEB (TANK) | CDM: 3.239 km, Ours: 3.997 km, ratio 1.23x, dTCA 0.4s</title></circle><circle cx="285.5" cy="265.4" r="6" class="pt" style="fill:#eb6834" data-type="DEBRIS"><title>COSMOS 397 DEB vs DELTA 2 R/B(1) | CDM: 0.221 km, Ours: 0.431 km, ratio 1.95x, dTCA 0.0s</title></circle><circle cx="357.9" cy="426.2" r="6" class="pt" style="fill:#eb6834" data-type="DEBRIS"><title>DELTA 1 DEB vs CZ-6A DEB | CDM: 0.399 km, Ours: 0.049 km, ratio 0.12x, dTCA 0.0s</title></circle><circle cx="284.9" cy="321.2" r="6" class="pt" style="fill:#eb6834" data-type="DEBRIS"><title>DELTA 1 DEB vs COSMOS 2251 DEB | CDM: 0.220 km, Ours: 0.204 km, ratio 0.93x, dTCA 0.0s</title></circle><circle cx="261.0" cy="284.8" r="6" class="pt" style="fill:#eb6834" data-type="DEBRIS"><title>DELTA 1 DEB vs UNKNOWN | CDM: 0.181 km, Ours: 0.332 km, ratio 1.84x, dTCA 0.2s</title></circle><circle cx="194.3" cy="291.1" r="6" class="pt" style="fill:#1baf7a" data-type="PAYLOAD"><title>COSMOS 990 vs COSMOS 1275 DEB | CDM: 0.105 km, Ours: 0.305 km, ratio 2.91x, dTCA 0.1s</title></circle></g>
+  <rect x="90" y="77" width="12" height="12" rx="3" style="fill:#2a78d6"/><text x="108" y="87" class="legend">Rocket Body</text><rect x="90" y="99" width="12" height="12" rx="3" style="fill:#eb6834"/><text x="108" y="109" class="legend">Debris</text><rect x="90" y="121" width="12" height="12" rx="3" style="fill:#1baf7a"/><text x="108" y="131" class="legend">Payload</text>
+  <line x1="76" y1="442" x2="690" y2="442" class="axis"/>
+  <line x1="76" y1="70" x2="76" y2="442" class="axis"/>
+  <text x="383.0" y="498" class="axislabel" text-anchor="middle">CDM reported miss distance (km)</text>
+  <text x="20" y="256.0" class="axislabel" text-anchor="middle" transform="rotate(-90 20 256.0)">OrbitWarden predicted miss (km)</text>
+  <text x="682" y="432" class="diaglabel" text-anchor="end">y = x (perfect agreement)</text>
+</svg></div>
+  <p class="note">Each point is a conjunction the Space Surveillance Network flagged (a real CDM). The dashed line is perfect agreement; the shaded band is ±2×. Points near the line mean our fast analytic SGP4 screening reproduces the CDM's high-precision propagation. Points are colored by the primary object's type; hover for details.</p>
+
+  <h2>Per-conjunction detail</h2>
+  <table>
+    <thead><tr><th>Primary</th><th>Secondary</th><th>Type</th>
+      <th class="num">CDM miss (km)</th><th class="num">Ours (km)</th>
+      <th class="num">Ratio</th><th class="num">ΔTCA (s)</th></tr></thead>
+    <tbody>
+<tr><td>SL-12 R/B(2)</td><td>DELTA 2 R/B(2)</td><td>Rocket Body</td><td class="num">3.238</td><td class="num">2.865</td><td class="num">0.88×</td><td class="num">3.1</td></tr>
+<tr><td>GORIZONT 20</td><td>NIGCOMSAT 1</td><td>Payload</td><td class="num">3.167</td><td class="num">3.403</td><td class="num">1.07×</td><td class="num">0.0</td></tr>
+<tr><td>DELTA 2 R/B(2)</td><td>SL-12 R/B(2)</td><td>Rocket Body</td><td class="num">3.238</td><td class="num">2.865</td><td class="num">0.88×</td><td class="num">3.1</td></tr>
+<tr><td>NIGCOMSAT 1</td><td>GORIZONT 20</td><td>Payload</td><td class="num">3.167</td><td class="num">3.403</td><td class="num">1.07×</td><td class="num">0.0</td></tr>
+<tr><td>BREEZE-M DEB (TANK)</td><td>CZ-3B R/B</td><td>Debris</td><td class="num">3.239</td><td class="num">3.997</td><td class="num">1.23×</td><td class="num">0.4</td></tr>
+<tr><td>CZ-3B R/B</td><td>BREEZE-M DEB (TANK)</td><td>Rocket Body</td><td class="num">3.239</td><td class="num">3.997</td><td class="num">1.23×</td><td class="num">0.4</td></tr>
+<tr><td>COSMOS 397 DEB</td><td>DELTA 2 R/B(1)</td><td>Debris</td><td class="num">0.221</td><td class="num">0.431</td><td class="num">1.95×</td><td class="num">0.0</td></tr>
+<tr><td>DELTA 1 DEB</td><td>CZ-6A DEB</td><td>Debris</td><td class="num">0.399</td><td class="num">0.049</td><td class="num">0.12×</td><td class="num">0.0</td></tr>
+<tr><td>DELTA 1 DEB</td><td>COSMOS 2251 DEB</td><td>Debris</td><td class="num">0.220</td><td class="num">0.204</td><td class="num">0.93×</td><td class="num">0.0</td></tr>
+<tr><td>DELTA 1 DEB</td><td>UNKNOWN</td><td>Debris</td><td class="num">0.181</td><td class="num">0.332</td><td class="num">1.84×</td><td class="num">0.2</td></tr>
+<tr><td>COSMOS 990</td><td>COSMOS 1275 DEB</td><td>Payload</td><td class="num">0.105</td><td class="num">0.305</td><td class="num">2.91×</td><td class="num">0.1</td></tr>
+    </tbody>
+  </table>
+</div>
+</body>
+</html>
