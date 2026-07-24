@@ -105,6 +105,8 @@ def screen_one(
     run_id = store.save_run(run)
     store.save_events(run_id, scored)
     store.save_objects(object_info)
+    # Persist the full context so the API/agent can serve this run without re-screening.
+    store.save_context(run_id, scored, catalog_by_id, object_info)
     print(f"  persisted run #{run_id}: {len(scored)} scored events")
     return scored, run
 

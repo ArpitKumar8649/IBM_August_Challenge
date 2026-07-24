@@ -5,7 +5,7 @@
 > Built for the **IBM AI Builders Challenge — August 2026: Advance Space Exploration with AI**.
 > Core design principle: ***physics computes, AI judges*** — a deterministic astrodynamics engine produces every number; an IBM Granite agent judges via strict tool-calling; a validation layer guarantees no AI-invented figure ever reaches the UI.
 
-⚠️ **Status: Phase 2 (complete screening engine) done.** TCA refinement, collision probability, SATCAT enrichment, storm flag, scoring, and persistence — validated against CelesTrak SOCRATES and the SGP4 reference suite. See [`docs/PHASE1_RESULTS.md`](docs/PHASE1_RESULTS.md) and [`docs/PHASE2_RESULTS.md`](docs/PHASE2_RESULTS.md). Build window: Aug 1–31, 2026.
+⚠️ **Status: Phase 3 (AI judgment layer) done.** Numerical avoidance-maneuver engine, 7-tool Granite agent, output-validation layer, and FastAPI — the full "physics computes, AI judges" architecture, validated end-to-end. See [`docs/PHASE1_RESULTS.md`](docs/PHASE1_RESULTS.md), [`docs/PHASE2_RESULTS.md`](docs/PHASE2_RESULTS.md), and [`docs/PHASE3_RESULTS.md`](docs/PHASE3_RESULTS.md). Build window: Aug 1–31, 2026.
 
 ## Problem statement
 

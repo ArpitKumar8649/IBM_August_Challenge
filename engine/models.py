@@ -115,3 +115,32 @@ class ScoredConjunction(BaseModel):
     secondary_maneuverable: bool = True
     storm_flag: bool = False
     risk_score: float = Field(default=0.0, description="Transparent composite triage score, 0-100")
+
+
+class ManeuverConstraints(BaseModel):
+    """Operator constraints on avoidance-maneuver selection."""
+
+    fuel_margin_g: float | None = Field(
+        default=None, description="Propellant that must remain after the burn (g)"
+    )
+    min_post_burn_miss_km: float = Field(
+        default=0.0, description="Required post-burn miss distance (km)"
+    )
+    blackout_windows: list[tuple[datetime, datetime]] = Field(
+        default_factory=list, description="UTC windows in which a burn is not allowed"
+    )
+
+
+class ManeuverOption(BaseModel):
+    """One candidate avoidance maneuver, scored by the engine."""
+
+    burn_epoch: datetime
+    lead_time_min: float = Field(description="Minutes before TCA the burn occurs")
+    dv_r_ms: float = Field(description="Radial Δv component (m/s)")
+    dv_s_ms: float = Field(description="In-track Δv component (m/s)")
+    dv_w_ms: float = Field(description="Cross-track Δv component (m/s)")
+    dv_total_ms: float = Field(description="Total Δv magnitude (m/s)")
+    propellant_g: float = Field(description="Propellant consumed (g)")
+    post_burn_miss_km: float = Field(description="Predicted miss distance after the burn (km)")
+    kind: str = Field(default="", description="cheapest-safe / nominal / conservative")
+    satisfies_constraints: bool = True

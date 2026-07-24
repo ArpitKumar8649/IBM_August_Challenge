@@ -1,15 +1,15 @@
-# OrbitWarden — deterministic physics plane + validation
+# OrbitWarden — deterministic physics plane + judgment layer + API
 sgp4>=2.23
 numpy>=1.26
 scipy>=1.11
 httpx>=0.27
 pydantic>=2.7
 pytest>=8.0
+fastapi>=0.110
+uvicorn>=0.29
 
-# Phase 3+ (judgment layer / API / batch) — install when needed:
-# fastapi
-# uvicorn
-# apscheduler
+# Phase3+ (agent uses the watsonx REST API directly via httpx — no extra deps).
+# Optional, if you prefer the LangChain integration:
 # langchain
 # langchain-ibm
 # langgraph

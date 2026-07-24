@@ -7,10 +7,11 @@ a matter of translating these few statements — the column layout is identical.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
-from engine.models import ObjectInfo, ScoredConjunction, ScreeningRun
+from engine.models import ObjectInfo, ScoredConjunction, ScreeningRun, TLEData
 
 DEFAULT_DB = "data/orbitwarden.db"
 
@@ -51,6 +52,12 @@ CREATE TABLE IF NOT EXISTS objects (
     country TEXT,
     rcs_size TEXT,
     size_m REAL
+);
+CREATE TABLE IF NOT EXISTS run_context (
+    run_id INTEGER PRIMARY KEY,
+    events_json TEXT,
+    catalog_json TEXT,
+    objects_json TEXT
 );
 """
 
@@ -138,6 +145,43 @@ class ScreeningStore:
             "SELECT * FROM events WHERE run_id = ? ORDER BY risk_score DESC", (run_id,)
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def save_context(
+        self,
+        run_id: int,
+        events: list[ScoredConjunction],
+        catalog: dict[int, TLEData],
+        object_info: dict[int, ObjectInfo],
+    ) -> None:
+        """Persist the full context the API/agent need to serve a run without
+        re-screening: scored events, the candidate catalog TLEs, and object info."""
+        self.conn.execute(
+            "INSERT OR REPLACE INTO run_context (run_id, events_json, catalog_json, objects_json) "
+            "VALUES (?, ?, ?, ?)",
+            (
+                run_id,
+                json.dumps([e.model_dump(mode="json") for e in events]),
+                json.dumps({str(k): v.model_dump(mode="json") for k, v in catalog.items()}),
+                json.dumps({str(k): v.model_dump(mode="json") for k, v in object_info.items()}),
+            ),
+        )
+        self.conn.commit()
+
+    def load_context(self, run_id: int) -> dict | None:
+        """Load the persisted context for a run, reconstructed into models."""
+        row = self.conn.execute(
+            "SELECT * FROM run_context WHERE run_id = ?", (run_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        events = [ScoredConjunction.model_validate(e) for e in json.loads(row["events_json"])]
+        catalog = {
+            int(k): TLEData.model_validate(v) for k, v in json.loads(row["catalog_json"]).items()
+        }
+        object_info = {
+            int(k): ObjectInfo.model_validate(v) for k, v in json.loads(row["objects_json"]).items()
+        }
+        return {"events": events, "catalog": catalog, "object_info": object_info}
 
     def close(self) -> None:
         self.conn.close()
