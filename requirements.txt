@@ -1,0 +1,15 @@
+# OrbitWarden — deterministic physics plane + validation
+sgp4>=2.23
+numpy>=1.26
+scipy>=1.11
+httpx>=0.27
+pydantic>=2.7
+pytest>=8.0
+
+# Phase 3+ (judgment layer / API / batch) — install when needed:
+# fastapi
+# uvicorn
+# apscheduler
+# langchain
+# langchain-ibm
+# langgraph
