@@ -262,3 +262,71 @@ class Paper(BaseModel):
     year: str = ""
     abstract: str = ""
     url: str = ""
+
+
+# ============================================================
+# Phase B — space-weather deepening models
+# ============================================================
+
+
+class SolarWindState(BaseModel):
+    """Multi-signal solar-wind state from NOAA SWPC."""
+
+    bt_nt: float = Field(default=0.0, description="IMF magnitude Bt (nT)")
+    bz_gsm_nt: float = Field(default=0.0, description="IMF Bz in GSM (nT); negative = southward = storm driver")
+    speed_kms: float = Field(default=0.0, description="solar wind proton speed (km/s)")
+    f107_sfu: float = Field(default=150.0, description="10.7 cm radio flux (sfu) — F10.7 proxy")
+    time_tag: str = ""
+
+
+class XrayState(BaseModel):
+    """Solar X-ray flux from GOES (flare activity)."""
+
+    flux_w_m2: float = Field(default=0.0, description="X-ray flux 0.1-0.8 nm (W/m²)")
+    flare_class: str = Field(default="A", description="flare class: A/B/C/M/X")
+    time_tag: str = ""
+
+
+class ProtonState(BaseModel):
+    """Solar energetic proton flux from GOES (SEP events)."""
+
+    flux_pfu: float = Field(default=0.0, description="integral proton flux >=10 MeV (pfu)")
+    sep_active: bool = Field(default=False, description="True if flux > 10 pfu (SEP event threshold)")
+    time_tag: str = ""
+
+
+class StormRiskComposite(BaseModel):
+    """Multi-signal composite storm-risk indicator (0-100)."""
+
+    score: float = Field(default=0.0, description="composite storm risk 0-100")
+    level: str = Field(default="quiet", description="quiet / unsettled / active / storm / severe")
+    drivers: list[str] = Field(default_factory=list, description="active storm drivers")
+    kp_max_3day: float = Field(default=0.0)
+    bz_gsm_nt: float = Field(default=0.0)
+    speed_kms: float = Field(default=0.0)
+    xray_class: str = Field(default="A")
+    sep_active: bool = Field(default=False)
+    f107_sfu: float = Field(default=150.0)
+
+
+class DonkiNotification(BaseModel):
+    """A NASA DONKI space-weather notification (any type)."""
+
+    message_id: str
+    message_type: str = Field(description="GST / CME / FLR / HSS / SEP / RBE / etc.")
+    issue_time: str
+    message_url: str = ""
+    summary: str = Field(default="", description="first ~200 chars of the message body")
+
+
+class DragUncertainty(BaseModel):
+    """Quantitative storm-driven drag-uncertainty band for a conjunction."""
+
+    event_id: int
+    quiet_miss_km: float = Field(description="predicted miss under quiet drag (Ap=4)")
+    storm_miss_km: float = Field(description="predicted miss under storm drag (current Ap)")
+    band_km: float = Field(description="|storm - quiet| — the uncertainty band")
+    ap_quiet: float = 4.0
+    ap_storm: float = Field(description="Ap derived from current Kp")
+    inflation_ratio: float = Field(default=1.0, description="storm density / quiet density")
+    recommendation: str = Field(default="", description="re-screen guidance")

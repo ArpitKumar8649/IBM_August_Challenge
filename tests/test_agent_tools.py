@@ -259,3 +259,37 @@ def test_search_literature_tool(tools):
     result = tools.search_literature("collision probability", rows=3)
     assert "available" in result
     assert "count" in result
+
+
+# --- Phase B: space-weather deepening tools (graceful) ---
+
+def test_get_space_weather_detailed_tool(tools):
+    result = tools.get_space_weather_detailed()
+    assert "composite" in result
+    assert "score" in result["composite"]
+    assert "level" in result["composite"]
+    assert "solar_wind" in result
+    assert "xray" in result
+    assert "protons" in result
+    # Composite score must be in [0, 100].
+    assert 0 <= result["composite"]["score"] <= 100
+
+
+def test_get_space_weather_alerts_tool(tools):
+    result = tools.get_space_weather_alerts(days=7)
+    assert "total" in result
+    assert "by_type" in result
+    assert "active_storm" in result
+    assert "storm_building" in result
+    assert isinstance(result["active_storm"], bool)
+
+
+def test_get_drag_uncertainty_tool(tools):
+    result = tools.get_drag_uncertainty(1)
+    assert "available" in result
+    if result["available"]:
+        assert "quiet_miss_km" in result
+        assert "storm_miss_km" in result
+        assert "band_km" in result
+        assert "recommendation" in result
+        assert result["band_km"] >= 0.0

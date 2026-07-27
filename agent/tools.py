@@ -32,6 +32,14 @@ from engine.standards import generate_cdm
 from engine.ingest.nasa_open import fetch_apod, fetch_epic_latest, fetch_neo_feed, search_ads
 from engine.ingest.open_notify import fetch_astronauts, fetch_iss_position
 from engine.ingest.spacetrack_ext import fetch_boxscore, fetch_recent_decays
+from engine.ingest.swpc_products import (
+    fetch_proton_flux,
+    fetch_solar_wind,
+    fetch_xray_flux,
+    storm_risk_composite,
+)
+from engine.ingest.donki_ext import analyze_donki, fetch_donki_all
+from engine.drag_uncertainty import drag_uncertainty_band
 from agent.rag import get_retriever
 from engine.models import (
     ManeuverConstraints,
@@ -591,6 +599,115 @@ class AgentTools:
             "source": "NASA ADS",
         }
 
+    # -- Phase B: space-weather deepening tools ------------------------------
+
+    def get_space_weather_detailed(self) -> dict:
+        """Full multi-signal space-weather picture with a composite storm-risk score.
+
+        Combines the Kp forecast, solar-wind magnetic field (Bt, Bz), solar-wind
+        speed, X-ray flare class, and energetic proton flux into one storm-risk
+        indicator (0-100) with a qualitative level and the list of active drivers.
+        This is the quantitative upgrade to the binary storm flag.
+        """
+        sw = fetch_solar_wind()
+        xr = fetch_xray_flux()
+        pr = fetch_proton_flux()
+        # Get the Kp forecast max from the existing space-weather source.
+        from engine.ingest.spaceweather import fetch_space_weather
+
+        base = fetch_space_weather()
+        kp_max = base.max_kp_3day if base else 0.0
+
+        comp = storm_risk_composite(kp_max_3day=kp_max, solar_wind=sw, xray=xr, proton=pr)
+        return {
+            "composite": {
+                "score": comp.score,
+                "level": comp.level,
+                "drivers": comp.drivers,
+            },
+            "kp_max_3day": kp_max,
+            "solar_wind": {
+                "bt_nt": sw.bt_nt,
+                "bz_gsm_nt": sw.bz_gsm_nt,
+                "speed_kms": sw.speed_kms,
+                "f107_sfu": sw.f107_sfu,
+            },
+            "xray": {"flux_w_m2": xr.flux_w_m2, "flare_class": xr.flare_class},
+            "protons": {"flux_pfu": pr.flux_pfu, "sep_active": pr.sep_active},
+            "source": "NOAA SWPC (multi-signal)",
+        }
+
+    def get_space_weather_alerts(self, days: int = 7) -> dict:
+        """All NASA DONKI space-weather alerts over the last N days.
+
+        Returns counts by notification type (GST/CME/FLR/HSS/SEP/RBE/…), whether a
+        geomagnetic storm is active, and the predictive 'storm building' signal
+        (precursors like CME/HSS present but no active storm yet).
+        """
+        from datetime import date, timedelta
+
+        notifs = fetch_donki_all(date.today() - timedelta(days=days), date.today())
+        analysis = analyze_donki(notifs)
+        return {
+            "days": days,
+            "total": analysis["total"],
+            "by_type": analysis["by_type"],
+            "active_storm": analysis["active_storm"],
+            "storm_precursors": analysis["storm_precursors"],
+            "storm_building": analysis["storm_building"],
+            "type_meanings": analysis["type_meanings"],
+            "recent": [
+                {"type": n.message_type, "issue_time": n.issue_time, "summary": n.summary}
+                for n in notifs[:5]
+            ],
+            "source": "NASA DONKI",
+        }
+
+    def get_drag_uncertainty(self, event_id: int) -> dict:
+        """Quantitative storm-driven drag-uncertainty band for a conjunction.
+
+        Propagates both objects under quiet vs current-storm drag and reports the
+        miss-distance band — 'predicted miss X km ± Y km due to drag uncertainty.'
+        This is the physical basis for 're-screen within 24 h of TCA.'
+        """
+        e = self._event(event_id)
+        primary_tle = self.ctx.primary
+        secondary_tle = self.ctx.catalog_by_id.get(e.secondary_norad)
+        if secondary_tle is None:
+            return {"available": False, "note": f"secondary {e.secondary_norad} TLE not in catalog"}
+
+        # Current Kp from the space-weather source.
+        from engine.ingest.spaceweather import fetch_space_weather
+
+        base = fetch_space_weather()
+        kp_current = base.max_kp_3day if base else 4.0
+
+        band = drag_uncertainty_band(
+            primary_tle,
+            secondary_tle,
+            e.tca,
+            event_id=event_id,
+            primary_type="PAYLOAD",
+            secondary_type=e.secondary_type,
+            kp_current=kp_current,
+        )
+        return {
+            "available": True,
+            "event_id": event_id,
+            "quiet_miss_km": band.quiet_miss_km,
+            "storm_miss_km": band.storm_miss_km,
+            "band_km": band.band_km,
+            "ap_quiet": band.ap_quiet,
+            "ap_storm": band.ap_storm,
+            "density_inflation_ratio": band.inflation_ratio,
+            "recommendation": band.recommendation,
+            "note": (
+                "Band = |miss under storm drag − miss under quiet drag|. Nonzero because "
+                "the two objects have different ballistic coefficients."
+            ),
+            "source": "NRLMSISE-00 + numerical propagation",
+        }
+
     # -- dispatch ------------------------------------------------------------
 
     TOOL_NAMES = [
@@ -613,6 +730,9 @@ class AgentTools:
         "get_catalog_statistics",
         "get_recent_reentries",
         "search_literature",
+        "get_space_weather_detailed",
+        "get_space_weather_alerts",
+        "get_drag_uncertainty",
     ]
 
     def dispatch(self, tool_name: str, arguments: dict | None = None) -> dict:
@@ -867,6 +987,37 @@ TOOL_SCHEMAS = [
                     "rows": {"type": "integer", "description": "number of papers (default 5)"},
                 },
                 "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_space_weather_detailed",
+            "description": "Get the full multi-signal space-weather picture: Kp forecast, solar-wind B-field (Bt/Bz) and speed, X-ray flare class, energetic proton flux, and a composite storm-risk score (0-100) with active drivers. The quantitative upgrade to the binary storm flag.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_space_weather_alerts",
+            "description": "Get all NASA DONKI space-weather alerts over the last N days: counts by type (GST/CME/FLR/HSS/SEP/RBE), whether a geomagnetic storm is active, and the predictive 'storm building' signal (precursors present, no active storm yet).",
+            "parameters": {
+                "type": "object",
+                "properties": {"days": {"type": "integer", "description": "look-back window in days (default 7)"}},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_drag_uncertainty",
+            "description": "Get the quantitative storm-driven drag-uncertainty band for a conjunction: 'predicted miss X km ± Y km due to drag uncertainty.' Propagates both objects under quiet vs current-storm drag. The physical basis for 're-screen within 24 h of TCA.'",
+            "parameters": {
+                "type": "object",
+                "properties": {"event_id": {"type": "integer"}},
+                "required": ["event_id"],
             },
         },
     },

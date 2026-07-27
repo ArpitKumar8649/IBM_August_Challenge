@@ -94,7 +94,7 @@ OrbitWarden is a web-based mission-ops decision-support tool. Give it a satellit
 - **RSW geometry classification** — in-track / radial / cross-track, with maneuverability awareness (debris and rocket bodies can't move — *you* must).
 - **Storm-aware re-screening** — NOAA SWPC + NASA DONKI feed a flag when geomagnetic activity inflates TLE uncertainty near a conjunction's TCA.
 - **Avoidance-maneuver search** — shoot-and-score over a grid of burns, using **numerical two-body propagation** (not linearized approximations), with rocket-equation propellant costing and three curated options (cheapest-safe / nominal / conservative).
-- **Granite judgment agent** — a 19-tool strict contract; the model's *only* way to touch numbers.
+- **Granite judgment agent** — a 22-tool strict contract; the model's *only* way to touch numbers.
 - **Retrieval-augmented analyst (RAG)** — a vector-database memory of space-domain knowledge (conjunction assessment, CDM/ODM standards, collision probability, maneuver planning, drag, validation, operator runbook, sustainability). The analyst answers with **grounded, cited expertise**, not generic prose — see [`docs/RAG_ANALYST.md`](docs/RAG_ANALYST.md).
 - **Output-validation layer** — every number the model writes in prose is checked against the engine's outputs; inventions are flagged. Maneuver cards are server-composed.
 - **Mission-control dashboard** — live conjunction board with ticking TCA countdowns, RSW geometry, maneuver options, and the analyst chat.
@@ -124,6 +124,16 @@ OrbitWarden ingests **real, live space data** — not synthetic samples — thro
 
 The agent contract is now **19 tools**. Every source is cached (per-source TTLs), rate-limit-aware, and degrades gracefully — the app never breaks on an API outage.
 
+### 🌦️ Quantitative space weather (Phase B)
+
+The storm flag becomes **quantitative and predictive** — see [`docs/PHASE_B_SPACE_WEATHER.md`](docs/PHASE_B_SPACE_WEATHER.md):
+
+- **Multi-signal storm-risk composite** (`engine/ingest/swpc_products.py`) — combines Kp forecast, solar-wind B-field (Bt/Bz) and speed, GOES X-ray flare class, and energetic proton flux into one 0–100 storm-risk score with the list of *active drivers* ("Kp 7, Bz −12 nT southward").
+- **DONKI predictive signal** (`engine/ingest/donki_ext.py`) — all notification types (GST/CME/FLR/HSS/SEP/RBE), with **causal-chain modeling**: "CME detected → geomagnetic storm expected → drag will increase" (reactive → predictive).
+- **Drag-uncertainty band** (`engine/drag_uncertainty.py`) — propagates both objects under quiet vs storm drag (NRLMSISE-00) and reports *"predicted miss X km ± Y km due to drag uncertainty"* — the physical basis for "re-screen within 24 h of TCA."
+
+The agent contract is now **22 tools** (`get_space_weather_detailed`, `get_space_weather_alerts`, `get_drag_uncertainty`).
+
 ---
 
 ## 🏗️ Architecture & AI Approach
@@ -145,7 +155,7 @@ OrbitWarden is three planes with a hard separation of concerns, plus a trust lay
    │   AI JUDGMENT PLANE        │         │   DETERMINISTIC PHYSICS PLANE    │
    │   (IBM Granite on watsonx) │  tools  │   (Python astrodynamics engine)  │
    │                            │────────▶│                                  │
-   │  · 19-tool strict contract │         │  · SGP4 propagation (<1mm)       │
+   │  · 22-tool strict contract │         │  · SGP4 propagation (<1mm)       │
    │  · triage & rationale      │         │  · band filter + coarse scan     │
    │  · maneuver selection      │         │  · golden-section TCA refine     │
    │  · what-if reasoning       │         │  · Alfriend–Foster Pc (B-plane)  │
@@ -310,7 +320,9 @@ IBM_August_Challenge/
 │   │   ├── spacetrack_ext.py   #     Space-Track boxscore / decay / launch_site
 │   │   ├── spaceweather.py     #     NOAA SWPC + NASA DONKI storm flag
 │   │   ├── nasa_open.py        #     NASA NEO Feed / EPIC / APOD / ADS
-│   │   └── open_notify.py      #     live ISS position + astronauts (TLE fallback)
+│   │   ├── open_notify.py      #     live ISS position + astronauts (TLE fallback)
+│   │   ├── swpc_products.py    #     NOAA SWPC multi-signal + storm-risk composite
+│   │   └── donki_ext.py        #     NASA DONKI all notification types + causal chains
 │   ├── propagate.py            #   vectorized SGP4 wrapper
 │   ├── frames.py               #   RSW frame transforms
 │   ├── screen.py               #   band filter → coarse scan → full scored pipeline
@@ -318,6 +330,7 @@ IBM_August_Challenge/
 │   ├── pc.py                   #   Alfriend–Foster collision probability (B-plane)
 │   ├── covariance.py           #   general 2-D Pc + covariance realism factor
 │   ├── atmosphere.py           #   NRLMSISE-00 density & drag (pymsis)
+│   ├── drag_uncertainty.py     #   quantitative storm-driven drag-uncertainty band
 │   ├── precision.py            #   numerical propagation: J2 + drag + SRP
 │   ├── fuel_optimal.py         #   minimum-Δv maneuver (CW-optimized, verified)
 │   ├── standards.py            #   CCSDS CDM/ODM message generation
@@ -327,7 +340,7 @@ IBM_August_Challenge/
 │   ├── models.py               #   shared pydantic models
 │   └── cli.py                  #   one-command screening
 ├── agent/                      # AI judgment plane
-│   ├── tools.py                #   the 19-tool contract
+│   ├── tools.py                #   the 22-tool contract
 │   ├── prompts.py              #   system prompt + few-shot
 │   ├── session.py              #   Granite tool-calling loop (watsonx REST)
 │   ├── validator.py            #   output-validation layer
