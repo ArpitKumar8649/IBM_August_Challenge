@@ -293,3 +293,41 @@ def test_get_drag_uncertainty_tool(tools):
         assert "band_km" in result
         assert "recommendation" in result
         assert result["band_km"] >= 0.0
+
+
+# --- Phase C: Earth observation tools (graceful) ---
+
+def test_get_ground_track_tool(tools):
+    result = tools.get_ground_track(minutes=30)
+    assert "available" in result
+    if result["available"]:
+        assert "current" in result
+        assert "bbox" in result
+        assert "center" in result
+        assert "track" in result
+        # ISS latitude bounds.
+        assert -52.5 <= result["current"]["latitude"] <= 52.5
+        assert result["num_points"] > 0
+
+
+def test_get_ground_track_unknown_norad(tools):
+    result = tools.get_ground_track(norad_id=999999)
+    assert result["available"] is False
+
+
+def test_get_imagery_under_satellite_tool(tools):
+    result = tools.get_imagery_under_satellite(collection="sentinel-2", max_cloud=50.0)
+    assert "available" in result
+    if result["available"]:
+        assert "scenes" in result
+        assert "position" in result
+        for s in result["scenes"]:
+            assert "id" in s
+            assert "cloud_cover" in s
+
+
+def test_get_disaster_data_tool(tools):
+    result = tools.get_disaster_data(west=33.0, south=-1.0, east=34.0, north=0.0, days=30)
+    assert "available" in result
+    assert "count" in result
+    assert "bbox" in result

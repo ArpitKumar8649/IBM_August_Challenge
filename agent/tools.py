@@ -39,7 +39,9 @@ from engine.ingest.swpc_products import (
     storm_risk_composite,
 )
 from engine.ingest.donki_ext import analyze_donki, fetch_donki_all
+from engine.ingest.stac_client import search_burnt_area, search_imagery
 from engine.drag_uncertainty import drag_uncertainty_band
+from engine.ground_track import ground_track, ground_track_bbox, ground_track_center
 from agent.rag import get_retriever
 from engine.models import (
     ManeuverConstraints,
@@ -708,6 +710,122 @@ class AgentTools:
             "source": "NRLMSISE-00 + numerical propagation",
         }
 
+    # -- Phase C: Earth observation tools ------------------------------------
+
+    def get_ground_track(self, norad_id: int | None = None, minutes: int = 90) -> dict:
+        """The satellite's ground track (sub-satellite lat/lon path) over the next N minutes.
+
+        Answers "where will my satellite be?" — computed from the TLE via SGP4,
+        accounting for Earth's rotation. Returns the track points, bounding box,
+        and center (for imagery queries).
+        """
+        if norad_id is None or norad_id == self.ctx.primary.norad_id:
+            tle = self.ctx.primary
+        else:
+            tle = self.ctx.catalog_by_id.get(norad_id)
+            if tle is None:
+                return {"available": False, "note": f"NORAD {norad_id} not in catalog"}
+
+        try:
+            track = ground_track(tle, duration_min=minutes, step_s=60.0)
+        except Exception as exc:  # noqa: BLE001
+            return {"available": False, "note": f"ground-track computation failed: {exc}"}
+        if not track:
+            return {"available": False, "note": "empty ground track (propagation error)"}
+
+        bbox = ground_track_bbox(track)
+        center = ground_track_center(track)
+        return {
+            "available": True,
+            "satellite": tle.name,
+            "norad_id": tle.norad_id,
+            "minutes": minutes,
+            "num_points": len(track),
+            "current": {"latitude": track[0].latitude, "longitude": track[0].longitude,
+                        "altitude_km": track[0].altitude_km},
+            "bbox": {"west": bbox[0], "south": bbox[1], "east": bbox[2], "north": bbox[3]},
+            "center": {"latitude": center[0], "longitude": center[1]},
+            "track": [{"lat": p.latitude, "lon": p.longitude, "time": p.time} for p in track[::5]],
+            "source": "SGP4 ground-track",
+        }
+
+    def get_imagery_under_satellite(
+        self, norad_id: int | None = None, collection: str = "sentinel-2", max_cloud: float = 30.0
+    ) -> dict:
+        """Satellite imagery under the satellite's current ground-track position.
+
+        Computes the sub-satellite point, then queries earth-search STAC for the
+        latest cloud-filtered scene (Sentinel-2 optical by default; Sentinel-1 SAR
+        for all-weather). Answers "what is my satellite looking at right now?"
+        """
+        if norad_id is None or norad_id == self.ctx.primary.norad_id:
+            tle = self.ctx.primary
+        else:
+            tle = self.ctx.catalog_by_id.get(norad_id)
+            if tle is None:
+                return {"available": False, "note": f"NORAD {norad_id} not in catalog"}
+
+        try:
+            track = ground_track(tle, duration_min=5, step_s=60.0)
+        except Exception as exc:  # noqa: BLE001
+            return {"available": False, "note": f"ground-track failed: {exc}"}
+        if not track:
+            return {"available": False, "note": "empty ground track"}
+
+        lat, lon = track[0].latitude, track[0].longitude
+        bbox = (lon - 0.5, lat - 0.5, lon + 0.5, lat + 0.5)
+        items = search_imagery(bbox, collection=collection, max_cloud_cover=max_cloud, limit=3)
+        if not items:
+            return {
+                "available": False,
+                "note": f"No {collection} scenes under the satellite (try collection='sentinel-1' for all-weather SAR).",
+                "position": {"latitude": lat, "longitude": lon},
+            }
+        return {
+            "available": True,
+            "satellite": tle.name,
+            "position": {"latitude": round(lat, 3), "longitude": round(lon, 3)},
+            "collection": collection,
+            "scenes": [
+                {
+                    "id": it.item_id,
+                    "datetime": it.datetime,
+                    "cloud_cover": round(it.cloud_cover, 1),
+                    "platform": it.platform,
+                    "thumbnail_url": it.thumbnail_url,
+                }
+                for it in items
+            ],
+            "source": "AWS earth-search STAC",
+        }
+
+    def get_disaster_data(
+        self, west: float, south: float, east: float, north: float, days: int = 30
+    ) -> dict:
+        """Copernicus CLMS burnt-area observations in a region (disaster monitoring).
+
+        Answers "any active fires / burnt areas in this region?" Queries the
+        Copernicus Data Space STAC (open search; data download needs a free token).
+        """
+        from datetime import date, timedelta
+
+        bbox = (west, south, east, north)
+        end = date.today()
+        start = end - timedelta(days=days)
+        dt_range = f"{start.isoformat()}/{end.isoformat()}"
+        items = search_burnt_area(bbox, datetime_range=dt_range, limit=10)
+        return {
+            "available": len(items) > 0,
+            "bbox": {"west": west, "south": south, "east": east, "north": north},
+            "days": days,
+            "count": len(items),
+            "burnt_areas": [
+                {"id": it.item_id, "datetime": it.datetime, "bbox": it.bbox} for it in items
+            ],
+            "note": "CLMS burnt-area metadata (STAC search is open; raster download needs a Copernicus token).",
+            "source": "Copernicus CLMS (Data Space STAC)",
+        }
+
     # -- dispatch ------------------------------------------------------------
 
     TOOL_NAMES = [
@@ -733,6 +851,9 @@ class AgentTools:
         "get_space_weather_detailed",
         "get_space_weather_alerts",
         "get_drag_uncertainty",
+        "get_ground_track",
+        "get_imagery_under_satellite",
+        "get_disaster_data",
     ]
 
     def dispatch(self, tool_name: str, arguments: dict | None = None) -> dict:
@@ -1018,6 +1139,53 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {"event_id": {"type": "integer"}},
                 "required": ["event_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_ground_track",
+            "description": "Get the satellite's ground track (sub-satellite lat/lon path) over the next N minutes — 'where will my satellite be?' Computed from the TLE via SGP4, accounting for Earth's rotation. Returns track points, bounding box, and center.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "norad_id": {"type": "integer", "description": "satellite NORAD id (default: primary)"},
+                    "minutes": {"type": "integer", "description": "track duration in minutes (default 90)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_imagery_under_satellite",
+            "description": "Get satellite imagery under the satellite's current ground-track position — 'what is my satellite looking at right now?' Queries earth-search STAC for the latest cloud-filtered scene. collection: 'sentinel-2' (optical, default), 'sentinel-1' (SAR, all-weather), or 'landsat'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "norad_id": {"type": "integer", "description": "satellite NORAD id (default: primary)"},
+                    "collection": {"type": "string", "description": "sentinel-2 / sentinel-1 / landsat"},
+                    "max_cloud": {"type": "number", "description": "max cloud cover % (default 30)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_disaster_data",
+            "description": "Get Copernicus CLMS burnt-area observations in a region (disaster monitoring) — 'any active fires / burnt areas here?' Provide a bounding box (west, south, east, north in degrees).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "west": {"type": "number"},
+                    "south": {"type": "number"},
+                    "east": {"type": "number"},
+                    "north": {"type": "number"},
+                    "days": {"type": "integer", "description": "look-back window in days (default 30)"},
+                },
+                "required": ["west", "south", "east", "north"],
             },
         },
     },

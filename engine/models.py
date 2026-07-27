@@ -330,3 +330,39 @@ class DragUncertainty(BaseModel):
     ap_storm: float = Field(description="Ap derived from current Kp")
     inflation_ratio: float = Field(default=1.0, description="storm density / quiet density")
     recommendation: str = Field(default="", description="re-screen guidance")
+
+
+# ============================================================
+# Phase C — Earth observation models (STAC / ground track)
+# ============================================================
+
+
+class GroundTrackPoint(BaseModel):
+    """A single sub-satellite point along a ground track."""
+
+    latitude: float = Field(description="geodetic latitude (deg)")
+    longitude: float = Field(description="longitude (deg, -180..180)")
+    time: str = Field(description="UTC timestamp (ISO)")
+    altitude_km: float = Field(default=0.0, description="altitude above ellipsoid (km)")
+
+
+class StacItem(BaseModel):
+    """A satellite-imagery scene from a STAC catalog (earth-search)."""
+
+    item_id: str
+    collection: str = ""
+    datetime: str = ""
+    bbox: list[float] = Field(default_factory=list, description="[west, south, east, north]")
+    cloud_cover: float = Field(default=100.0, description="cloud cover % (eo:cloud_cover)")
+    platform: str = Field(default="", description="satellite platform (e.g. sentinel-2a)")
+    thumbnail_url: str = Field(default="")
+    asset_urls: dict[str, str] = Field(default_factory=dict, description="asset key -> href")
+
+
+class BurntAreaItem(BaseModel):
+    """A Copernicus CLMS burnt-area observation (disaster monitoring)."""
+
+    item_id: str
+    collection: str = ""
+    datetime: str = ""
+    bbox: list[float] = Field(default_factory=list)
