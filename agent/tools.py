@@ -41,6 +41,12 @@ from engine.ingest.swpc_products import (
 from engine.ingest.donki_ext import analyze_donki, fetch_donki_all
 from engine.ingest.stac_client import search_burnt_area, search_imagery
 from engine.ingest.horizons import fetch_body_state, sun_direction_geocentric
+from engine.ingest.astronomy import (
+    exoplanet_count,
+    fetch_recent_exoplanets,
+    fetch_recent_transients,
+    query_gaia,
+)
 from engine.drag_uncertainty import drag_uncertainty_band
 from engine.ground_track import ground_track, ground_track_bbox, ground_track_center
 from agent.rag import get_retriever
@@ -867,6 +873,103 @@ class AgentTools:
             "source": "JPL Horizons",
         }
 
+    # -- Phase E: astronomy & discovery tools --------------------------------
+
+    def get_recent_transients(self, limit: int = 10) -> dict:
+        """Recent astronomical transients from the ZTF survey (via the ALeRCE broker).
+
+        Answers "what's new in the sky tonight?" — supernovae, variable stars, AGN,
+        and unclassified transients, most-recent-first. The discovery angle of the
+        challenge.
+        """
+        transients = fetch_recent_transients(limit=limit)
+        if not transients:
+            return {
+                "available": False,
+                "count": 0,
+                "note": "ALeRCE broker unavailable or slow (it can take ~30-60 s). Try again shortly.",
+            }
+        classified = sum(1 for t in transients if t.classification != "unclassified")
+        return {
+            "available": True,
+            "count": len(transients),
+            "classified": classified,
+            "transients": [
+                {
+                    "oid": t.oid,
+                    "ra": round(t.ra, 4),
+                    "dec": round(t.dec, 4),
+                    "classification": t.classification,
+                    "last_observed": t.last_observed[:10],
+                    "n_detections": t.n_detections,
+                }
+                for t in transients
+            ],
+            "source": "ZTF via ALeRCE broker",
+        }
+
+    def get_exoplanet_stats(self, since_year: int = 2020, limit: int = 10) -> dict:
+        """Confirmed-exoplanet statistics from the NASA Exoplanet Archive.
+
+        Answers "how many exoplanets have we found?" — total confirmed since a given
+        year, plus recent discoveries with their detection method. An engagement hook
+        and the astronomy-research angle.
+        """
+        count = exoplanet_count(since_year=since_year)
+        recent = fetch_recent_exoplanets(since_year=since_year, limit=limit)
+        if count == 0 and not recent:
+            return {"available": False, "note": "NASA Exoplanet Archive unavailable."}
+        # Tally discovery methods among the recent sample.
+        methods: dict[str, int] = {}
+        for e in recent:
+            methods[e.discovery_method] = methods.get(e.discovery_method, 0) + 1
+        return {
+            "available": True,
+            "confirmed_since": since_year,
+            "count": count,
+            "recent": [
+                {
+                    "name": e.name,
+                    "discovery_method": e.discovery_method,
+                    "year": e.discovery_year,
+                    "host_star": e.host_star,
+                }
+                for e in recent
+            ],
+            "methods_in_sample": methods,
+            "source": "NASA Exoplanet Archive",
+        }
+
+    def get_stars_near(self, ra: float, dec: float, radius_arcmin: float = 5.0, limit: int = 10) -> dict:
+        """Stars near a sky position from the Gaia DR3 catalog (cone search).
+
+        Answers "what stars are in this field?" — useful for astronomy-aware
+        operations and engagement. Returns stars sorted brightest-first.
+        """
+        stars = query_gaia(ra=ra, dec=dec, radius_arcmin=radius_arcmin, limit=limit)
+        if not stars:
+            return {
+                "available": False,
+                "count": 0,
+                "note": "Gaia query returned no stars (field may be empty, or Gaia is rate-limited).",
+            }
+        return {
+            "available": True,
+            "center": {"ra": ra, "dec": dec},
+            "radius_arcmin": radius_arcmin,
+            "count": len(stars),
+            "stars": [
+                {
+                    "source_id": s.source_id,
+                    "ra": round(s.ra, 5),
+                    "dec": round(s.dec, 5),
+                    "g_mag": round(s.g_mag, 2),
+                }
+                for s in stars
+            ],
+            "source": "ESA Gaia DR3",
+        }
+
     # -- dispatch ------------------------------------------------------------
 
     TOOL_NAMES = [
@@ -896,6 +999,9 @@ class AgentTools:
         "get_imagery_under_satellite",
         "get_disaster_data",
         "get_planet_position",
+        "get_recent_transients",
+        "get_exoplanet_stats",
+        "get_stars_near",
     ]
 
     def dispatch(self, tool_name: str, arguments: dict | None = None) -> dict:
@@ -1243,6 +1349,48 @@ TOOL_SCHEMAS = [
                     "days": {"type": "integer", "description": "ephemeris window in days (default 1)"},
                 },
                 "required": ["body"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_recent_transients",
+            "description": "Get recent astronomical transients from the ZTF survey (via the ALeRCE broker) — 'what's new in the sky tonight?' Returns supernovae, variable stars, AGN, and unclassified transients, most-recent-first, with positions and classifications.",
+            "parameters": {
+                "type": "object",
+                "properties": {"limit": {"type": "integer", "description": "number of transients (default 10)"}},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_exoplanet_stats",
+            "description": "Get confirmed-exoplanet statistics from the NASA Exoplanet Archive — 'how many exoplanets have we found?' Returns the count since a given year plus recent discoveries with their detection method.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "since_year": {"type": "integer", "description": "count discoveries since this year (default 2020)"},
+                    "limit": {"type": "integer", "description": "number of recent exoplanets to list (default 10)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_stars_near",
+            "description": "Get stars near a sky position from the Gaia DR3 catalog (cone search) — 'what stars are in this field?' Returns stars sorted brightest-first (by G magnitude).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ra": {"type": "number", "description": "right ascension (deg)"},
+                    "dec": {"type": "number", "description": "declination (deg)"},
+                    "radius_arcmin": {"type": "number", "description": "search radius (arcmin, default 5)"},
+                    "limit": {"type": "integer", "description": "max stars (default 10)"},
+                },
+                "required": ["ra", "dec"],
             },
         },
     },

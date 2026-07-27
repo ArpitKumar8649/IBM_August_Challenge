@@ -381,3 +381,39 @@ class EphemerisState(BaseModel):
     jd: float = Field(default=0.0, description="Julian date (TDB)")
     r_eci: list[float] = Field(default_factory=list, description="position [x,y,z] (km), ICRF/J2000")
     v_eci: list[float] = Field(default_factory=list, description="velocity [vx,vy,vz] (km/s), ICRF/J2000")
+
+
+# ============================================================
+# Phase E — astronomy & discovery models
+# ============================================================
+
+
+class Transient(BaseModel):
+    """A ZTF astronomical transient from the ALeRCE broker."""
+
+    oid: str = Field(description="object id, e.g. ZTF26abkitep")
+    ra: float = Field(default=0.0, description="right ascension (deg)")
+    dec: float = Field(default=0.0, description="declination (deg)")
+    classification: str = Field(default="unclassified", description="ALeRCE class (SN Ia, AGN, variable, etc.)")
+    last_mjd: float = Field(default=0.0, description="last detection (Modified Julian Date)")
+    first_mjd: float = Field(default=0.0, description="first detection (MJD)")
+    n_detections: int = Field(default=0, description="number of detections in history")
+    last_observed: str = Field(default="", description="last detection (ISO date)")
+
+
+class Exoplanet(BaseModel):
+    """A confirmed exoplanet from the NASA Exoplanet Archive."""
+
+    name: str
+    discovery_method: str = ""
+    discovery_year: int = 0
+    host_star: str = ""
+
+
+class Star(BaseModel):
+    """A star from the Gaia catalog (cone search)."""
+
+    source_id: str
+    ra: float = 0.0
+    dec: float = 0.0
+    g_mag: float = Field(default=0.0, description="Gaia G-band magnitude")

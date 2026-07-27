@@ -357,3 +357,36 @@ def test_get_planet_position_sun(tools):
 def test_get_planet_position_unknown_body(tools):
     result = tools.get_planet_position("krypton", days=1)
     assert result["available"] is False
+
+
+# --- Phase E: astronomy & discovery tools (graceful) ---
+
+def test_get_recent_transients_tool(tools):
+    result = tools.get_recent_transients(limit=3)
+    assert "available" in result
+    assert "count" in result
+    if result["available"]:
+        assert "transients" in result
+        for t in result["transients"]:
+            assert "oid" in t
+            assert "classification" in t
+
+
+def test_get_exoplanet_stats_tool(tools):
+    result = tools.get_exoplanet_stats(since_year=2020, limit=3)
+    assert "available" in result
+    if result["available"]:
+        assert "count" in result
+        assert "recent" in result
+        assert result["count"] >= 0
+
+
+def test_get_stars_near_tool(tools):
+    result = tools.get_stars_near(ra=266.4, dec=-28.9, radius_arcmin=6.0, limit=3)
+    assert "available" in result
+    assert "count" in result
+    if result["available"]:
+        assert "stars" in result
+        for s in result["stars"]:
+            assert "source_id" in s
+            assert "g_mag" in s
