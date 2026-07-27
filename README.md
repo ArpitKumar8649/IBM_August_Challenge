@@ -94,10 +94,20 @@ OrbitWarden is a web-based mission-ops decision-support tool. Give it a satellit
 - **RSW geometry classification** — in-track / radial / cross-track, with maneuverability awareness (debris and rocket bodies can't move — *you* must).
 - **Storm-aware re-screening** — NOAA SWPC + NASA DONKI feed a flag when geomagnetic activity inflates TLE uncertainty near a conjunction's TCA.
 - **Avoidance-maneuver search** — shoot-and-score over a grid of burns, using **numerical two-body propagation** (not linearized approximations), with rocket-equation propellant costing and three curated options (cheapest-safe / nominal / conservative).
-- **Granite judgment agent** — a 7-tool strict contract; the model's *only* way to touch numbers.
+- **Granite judgment agent** — a 10-tool strict contract; the model's *only* way to touch numbers.
 - **Output-validation layer** — every number the model writes in prose is checked against the engine's outputs; inventions are flagged. Maneuver cards are server-composed.
 - **Mission-control dashboard** — live conjunction board with ticking TCA countdowns, RSW geometry, maneuver options, and the analyst chat.
 - **Validated against ground truth** — replayed against CelesTrak SOCRATES and real Space Surveillance Network CDMs (see [Validation](#-validation--evidence)).
+
+### 🔬 Advanced astrodynamics (NASA-level physics)
+
+Beyond SGP4 screening, OrbitWarden adds high-fidelity physics where it matters — see [`docs/ADVANCED_ASTRODYNAMICS.md`](docs/ADVANCED_ASTRODYNAMICS.md):
+
+- **NRLMSISE-00 atmospheric drag** (`engine/atmosphere.py`) — NASA's empirical thermosphere model (via `pymsis`), space-weather-driven; makes the storm flag *quantitative* (density inflates ~1.7× during a geomagnetic storm).
+- **Precision numerical propagation** (`engine/precision.py`) — J2 geopotential + drag + solar radiation pressure (scipy DOP853, 1e-11 tolerances). **Two-tier fidelity:** SGP4 screens the many; numerical propagation confirms the few that matter — exactly how operational centers work.
+- **Realistic collision probability** (`engine/covariance.py`) — the *general* 2-D Alfriend–Foster formula for arbitrary (correlated) covariance, plus a documented **covariance realism factor** (Foster/Hall). Correctly captures the non-monotonic Pc-vs-covariance behavior for off-center misses.
+- **Fuel-optimal maneuvers** (`engine/fuel_optimal.py`) — the **minimum-Δv** burn for a target miss, optimized via the Clohessy-Wiltshire state-transition matrix and verified numerically. Beats a naive in-track burn.
+- **CCSDS CDM/ODM standards** (`engine/standards.py`) — generates standards-compliant Conjunction Data Messages (CCSDS 508.0-B-1) and Orbit Mean-Elements Messages (CCSDS 502.0-B-2) — interoperable with operational SSA tooling.
 
 ---
 
@@ -284,6 +294,11 @@ IBM_August_Challenge/
 │   ├── screen.py               #   band filter → coarse scan → full scored pipeline
 │   ├── tca.py                  #   golden-section TCA refinement
 │   ├── pc.py                   #   Alfriend–Foster collision probability (B-plane)
+│   ├── covariance.py           #   general 2-D Pc + covariance realism factor
+│   ├── atmosphere.py           #   NRLMSISE-00 density & drag (pymsis)
+│   ├── precision.py            #   numerical propagation: J2 + drag + SRP
+│   ├── fuel_optimal.py         #   minimum-Δv maneuver (CW-optimized, verified)
+│   ├── standards.py            #   CCSDS CDM/ODM message generation
 │   ├── scoring.py              #   geometry classification + risk score
 │   ├── maneuvers.py            #   numerical shoot-and-score maneuver search
 │   ├── storage.py              #   SQLite persistence (Postgres-ready schema)
@@ -332,7 +347,7 @@ IBM_August_Challenge/
 |-------|-----------|
 | **AI model** | IBM Granite 4 (`ibm/granite-4-h-small`) on **watsonx.ai** |
 | **AI dev tool** | **IBM Bob** (primary development tool) |
-| **Physics** | `sgp4` (vectorized), `scipy` (DOP853, Brent), `numpy` |
+| **Physics** | `sgp4` (vectorized), `scipy` (DOP853, Brent), `numpy`, `pymsis` (NRLMSISE-00 atmospheric model) |
 | **Backend** | Python 3.12, FastAPI, pydantic, SQLite (Postgres-ready) |
 | **Frontend** | React 18, TypeScript, Vite |
 | **Data** | CelesTrak, Space-Track (SATCAT, CDM_PUBLIC, gp_history), NOAA SWPC, NASA DONKI |

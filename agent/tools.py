@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from engine.frames import relative_state_rsw
+from engine.frames import relative_state_rsw, rsw_rotation
 from engine.maneuvers import (
     DEFAULT_ISP_S,
     DEFAULT_MASS_KG,
@@ -26,6 +26,9 @@ from engine.maneuvers import (
     propellant_g,
     search_maneuvers,
 )
+from engine.covariance import collision_probability_both
+from engine.fuel_optimal import fuel_optimal_with_verification
+from engine.standards import generate_cdm
 from engine.models import (
     ManeuverConstraints,
     ObjectInfo,
@@ -286,6 +289,106 @@ class AgentTools:
             "operator_notes": notes,
         }
 
+    # -- advanced astrodynamics tools ----------------------------------------
+
+    def fuel_optimal_maneuver(
+        self, event_id: int, target_miss_km: float = 10.0, lead_time_min: float = 60.0
+    ) -> dict:
+        """Minimum-Δv avoidance burn for a target miss, verified numerically.
+
+        Uses the CW state-transition matrix to find the fuel-optimal burn
+        direction/magnitude, then verifies the actual post-burn miss with the
+        high-fidelity numerical propagator (J2 + drag). Returns both the CW
+        estimate and the verified result.
+        """
+        e = self._event(event_id)
+        state = self._inertial_state_at_tca(e)
+        # RSW rotation at TCA (for Δv frame)
+        rotation = rsw_rotation(state.r_primary, state.v_primary)
+        # Mean motion from the primary's orbit
+        alt = (self.ctx.primary.perigee_alt_km + self.ctx.primary.apogee_alt_km) / 2
+        n = mean_motion_from_alt(alt)
+        miss_rsw = [e.miss_r_km, e.miss_s_km, e.miss_w_km]
+        vrel_rsw = [
+            e.relative_velocity_kms if e.geometry == "in-track" else 0.0,
+            e.relative_velocity_kms if e.geometry != "in-track" else e.relative_velocity_kms,
+            0.0,
+        ]
+        # Use the actual relative velocity magnitude in the dominant direction
+        vrel_rsw = [0.0, e.relative_velocity_kms, 0.0]
+
+        result = fuel_optimal_with_verification(
+            mean_motion=n,
+            lead_time_s=lead_time_min * 60.0,
+            miss_rsw=miss_rsw,
+            rel_vel_rsw=vrel_rsw,
+            target_miss_km=target_miss_km,
+            r_primary_tca=state.r_primary,
+            v_primary_tca=state.v_primary,
+            r_secondary_tca=state.r_secondary,
+            rsw_rotation=rotation,
+            mass_kg=self.ctx.mass_kg,
+            isp_s=self.ctx.isp_s,
+            include_j2=True,
+            include_drag=True,
+            include_srp=False,
+        )
+        dv = result["dv_rsw_ms"]
+        return {
+            "event_id": event_id,
+            "target_miss_km": target_miss_km,
+            "dv_total_ms": round(result["dv_total_ms"], 2),
+            "dv_rsw_ms": {
+                "radial": round(float(dv[0]), 2),
+                "in_track": round(float(dv[1]), 2),
+                "cross_track": round(float(dv[2]), 2),
+            },
+            "propellant_g": round(result["propellant_g"], 1),
+            "cw_predicted_miss_km": round(result["cw_predicted_miss_km"], 3),
+            "verified_miss_km": round(result["verified_miss_km"], 3),
+            "satisfies_target": result["satisfies_target"],
+            "lead_time_min": lead_time_min,
+            "note": result.get("note", "fuel-optimal burn (CW-optimized, numerically verified)"),
+        }
+
+    def collision_probability_realistic(self, event_id: int, realism_factor: float = 2.0) -> dict:
+        """Both the analytic (fixed) and realism-adjusted collision probability.
+
+        Reports both so the operator sees the effect of the covariance-realism
+        assumption. The realism factor inflates the analytic covariance toward
+        operational realism (Foster/Hall methodology).
+        """
+        e = self._event(event_id)
+        miss_rsw = [e.miss_r_km, e.miss_s_km, e.miss_w_km]
+        vrel_rsw = [0.0, e.relative_velocity_kms, 0.0]
+        result = collision_probability_both(miss_rsw, vrel_rsw, e.hbr_km, realism_factor)
+        return {
+            "event_id": event_id,
+            "pc_analytic": result["pc_analytic"],
+            "pc_realistic": result["pc_realistic"],
+            "realism_factor": result["realism_factor"],
+            "note": (
+                "pc_realistic uses a documented covariance realism factor "
+                f"(k={realism_factor}); see docs/ADVANCED_ASTRODYNAMICS.md."
+            ),
+        }
+
+    def generate_cdm_message(self, event_id: int) -> dict:
+        """Generate a CCSDS-standard Conjunction Data Message (CDM) for an event.
+
+        Produces a standards-compliant CDM (CCSDS 508.0-B-1) that an operator
+        could ingest into existing SSA tooling — interoperability with the
+        operational community.
+        """
+        e = self._event(event_id)
+        secondary = self.ctx.catalog_by_id.get(e.secondary_norad)
+        cdm_text = generate_cdm(e, self.ctx.primary, secondary)
+        return {
+            "event_id": event_id,
+            "format": "CCSDS_CDM_V1.0_KVN",
+            "cdm": cdm_text,
+        }
+
     # -- dispatch ------------------------------------------------------------
 
     TOOL_NAMES = [
@@ -296,6 +399,9 @@ class AgentTools:
         "get_space_weather",
         "repropagate_with_burn",
         "submit_maneuver_card",
+        "fuel_optimal_maneuver",
+        "collision_probability_realistic",
+        "generate_cdm_message",
     ]
 
     def dispatch(self, tool_name: str, arguments: dict | None = None) -> dict:
@@ -408,6 +514,51 @@ TOOL_SCHEMAS = [
                     "dv_w_ms": {"type": "number"},
                     "lead_time_min": {"type": "number"},
                     "notes": {"type": "string"},
+                },
+                "required": ["event_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "fuel_optimal_maneuver",
+            "description": "Compute the minimum-Δv (fuel-optimal) avoidance burn for a target miss distance, verified with high-fidelity numerical propagation (J2 + drag). Returns both the CW estimate and the verified post-burn miss.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "event_id": {"type": "integer"},
+                    "target_miss_km": {"type": "number", "description": "required post-burn miss (km), default 10"},
+                    "lead_time_min": {"type": "number", "description": "burn lead time before TCA (min), default 60"},
+                },
+                "required": ["event_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "collision_probability_realistic",
+            "description": "Compute both the analytic (fixed-covariance) and realism-adjusted collision probability for an event, using a documented covariance realism factor (Foster/Hall).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "event_id": {"type": "integer"},
+                    "realism_factor": {"type": "number", "description": "covariance realism factor k, default 2.0"},
+                },
+                "required": ["event_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_cdm_message",
+            "description": "Generate a CCSDS-standard Conjunction Data Message (CDM, CCSDS 508.0-B-1) for an event — interoperable with operational SSA tooling.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "event_id": {"type": "integer"},
                 },
                 "required": ["event_id"],
             },

@@ -7,6 +7,7 @@ pydantic>=2.7
 pytest>=8.0
 fastapi>=0.110
 uvicorn>=0.29
+pymsis>=0.12  # NASA NRLMSISE-00 atmospheric model (drag modeling)
 
 # Phase3+ (agent uses the watsonx REST API directly via httpx — no extra deps).
 # Optional, if you prefer the LangChain integration:

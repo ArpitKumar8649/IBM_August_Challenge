@@ -118,3 +118,45 @@ def test_dispatch_bad_event_id(tools):
 def test_dispatch_routes_correctly(tools):
     result = tools.dispatch("list_conjunctions", {"limit": 3})
     assert "events" in result
+
+
+def test_fuel_optimal_maneuver_tool(tools):
+    """The fuel-optimal maneuver tool returns a verified burn."""
+    result = tools.fuel_optimal_maneuver(1, target_miss_km=10.0, lead_time_min=60.0)
+    assert result["event_id"] == 1
+    assert "dv_total_ms" in result
+    assert "verified_miss_km" in result
+    assert "cw_predicted_miss_km" in result
+    assert result["propellant_g"] >= 0
+    # If a burn was needed, it should be verified
+    if result["dv_total_ms"] > 0:
+        assert result["verified_miss_km"] > 0
+
+
+def test_collision_probability_realistic_tool(tools):
+    """The realistic Pc tool returns both analytic and realism-adjusted Pc."""
+    result = tools.collision_probability_realistic(1, realism_factor=2.0)
+    assert "pc_analytic" in result
+    assert "pc_realistic" in result
+    assert result["realism_factor"] == 2.0
+    assert 0.0 <= result["pc_analytic"] <= 1.0
+    assert 0.0 <= result["pc_realistic"] <= 1.0
+
+
+def test_generate_cdm_message_tool(tools):
+    """The CDM generation tool returns a CCSDS-compliant message."""
+    result = tools.generate_cdm_message(1)
+    assert result["format"] == "CCSDS_CDM_V1.0_KVN"
+    assert "CCSDS_CDM_VERS = 1.0" in result["cdm"]
+    assert "MISS_DISTANCE =" in result["cdm"]
+    assert "COLLISION_PROBABILITY =" in result["cdm"]
+
+
+def test_dispatch_new_tools(tools):
+    """The new tools are routable via dispatch."""
+    r1 = tools.dispatch("fuel_optimal_maneuver", {"event_id": 1, "target_miss_km": 10.0})
+    assert "dv_total_ms" in r1
+    r2 = tools.dispatch("collision_probability_realistic", {"event_id": 1})
+    assert "pc_realistic" in r2
+    r3 = tools.dispatch("generate_cdm_message", {"event_id": 1})
+    assert "cdm" in r3
