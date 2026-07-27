@@ -29,6 +29,9 @@ from engine.maneuvers import (
 from engine.covariance import collision_probability_both
 from engine.fuel_optimal import fuel_optimal_with_verification
 from engine.standards import generate_cdm
+from engine.ingest.nasa_open import fetch_apod, fetch_epic_latest, fetch_neo_feed, search_ads
+from engine.ingest.open_notify import fetch_astronauts, fetch_iss_position
+from engine.ingest.spacetrack_ext import fetch_boxscore, fetch_recent_decays
 from agent.rag import get_retriever
 from engine.models import (
     ManeuverConstraints,
@@ -402,6 +405,192 @@ class AgentTools:
         retriever = get_retriever()
         return retriever.retrieve_and_format(query, k=k)
 
+    # -- Phase A: live NASA / Space-Track / Open Notify data tools -----------
+
+    def get_near_earth_objects(self, days: int = 7) -> dict:
+        """Near-Earth objects approaching Earth over the next N days (NASA NEO Feed).
+
+        Extends OrbitWarden from artificial-object conjunctions to natural ones —
+        planetary defense. Returns upcoming close approaches with hazard flags.
+        """
+        from datetime import date, timedelta
+
+        end = date.today() + timedelta(days=days)
+        neos = fetch_neo_feed(date.today(), end)
+        rows = []
+        for n in neos:
+            approaches = [
+                {
+                    "date": ca.date,
+                    "miss_km": round(ca.miss_distance_km, 1),
+                    "miss_lunar": round(ca.miss_distance_lunar, 2),
+                    "velocity_kmh": round(ca.relative_velocity_kmh, 1),
+                }
+                for ca in n.close_approaches
+            ]
+            rows.append(
+                {
+                    "name": n.name,
+                    "hazardous": n.is_potentially_hazardous,
+                    "diameter_km": round(n.estimated_diameter_km, 3),
+                    "approaches": approaches,
+                }
+            )
+        hazardous_count = sum(1 for n in neos if n.is_potentially_hazardous)
+        return {
+            "days": days,
+            "count": len(neos),
+            "hazardous_count": hazardous_count,
+            "objects": rows,
+            "source": "NASA NEO Feed",
+        }
+
+    def get_earth_imagery(self) -> dict:
+        """Latest full-disc Earth imagery from NASA EPIC (DSCOVR satellite)."""
+        images = fetch_epic_latest()
+        if not images:
+            return {"available": False, "note": "EPIC imagery unavailable (API down or rate-limited)"}
+        latest = images[0]
+        return {
+            "available": True,
+            "count": len(images),
+            "latest": {
+                "identifier": latest.identifier,
+                "date": latest.date,
+                "caption": latest.caption,
+                "centroid_lat": round(latest.centroid_lat, 2),
+                "centroid_lon": round(latest.centroid_lon, 2),
+                "image_url": latest.image_url,
+            },
+            "source": "NASA EPIC (DSCOVR)",
+        }
+
+    def get_astronomy_picture(self) -> dict:
+        """NASA Astronomy Picture of the Day (public engagement)."""
+        apod = fetch_apod()
+        if apod is None:
+            return {"available": False, "note": "APOD unavailable"}
+        return {
+            "available": True,
+            "title": apod.title,
+            "media_type": apod.media_type,
+            "date": apod.date,
+            "url": apod.url,
+            "explanation": apod.explanation[:600] + ("..." if len(apod.explanation) > 600 else ""),
+            "source": "NASA APOD",
+        }
+
+    def get_iss_position(self) -> dict:
+        """Live ISS position (Open Notify, with TLE-computed fallback)."""
+        iss = fetch_iss_position()
+        if iss is None:
+            return {"available": False, "note": "ISS position unavailable"}
+        return {
+            "available": True,
+            "latitude": round(iss.latitude, 3),
+            "longitude": round(iss.longitude, 3),
+            "source": iss.source,
+            "note": "Live ground-track position of the International Space Station.",
+        }
+
+    def get_astronauts(self) -> dict:
+        """Humans currently in space (Open Notify)."""
+        astros = fetch_astronauts()
+        return {
+            "number": astros.number,
+            "people": [{"name": p.name, "craft": p.craft} for p in astros.people],
+            "source": "Open Notify",
+        }
+
+    def get_catalog_statistics(self, top_n: int =10) -> dict:
+        """Who owns what's in orbit — catalog statistics by country (Space-Track boxscore).
+
+        Returns the top spacefaring nations by active payloads, plus orbital debris
+        and decayed-object counts. Powers the 'who's in space' and sustainability views.
+        """
+        stats = fetch_boxscore()
+        if not stats:
+            return {"available": False, "note": "boxscore unavailable (auth or rate limit)"}
+        # Separate the global 'ALL' row from individual countries.
+        global_row = next((s for s in stats if s.country.upper() == "ALL"), None)
+        countries = [s for s in stats if s.country.upper() != "ALL"]
+        top = sorted(countries, key=lambda s: s.orbital_payloads, reverse=True)[:top_n]
+        return {
+            "available": True,
+            "global": {
+                "orbital_payloads": global_row.orbital_payloads if global_row else 0,
+                "orbital_debris": global_row.orbital_debris if global_row else 0,
+                "orbital_total": global_row.orbital_total if global_row else 0,
+                "decayed_total": global_row.decayed_total if global_row else 0,
+            } if global_row else {},
+            "top_countries": [
+                {
+                    "country": s.country,
+                    "orbital_payloads": s.orbital_payloads,
+                    "orbital_debris": s.orbital_debris,
+                    "orbital_total": s.orbital_total,
+                    "decayed_total": s.decayed_total,
+                }
+                for s in top
+            ],
+            "source": "Space-Track boxscore",
+        }
+
+    def get_recent_reentries(self, limit: int = 10) -> dict:
+        """Recent predicted reentry/decay events (Space-Track decay class).
+
+        Powers the space-sustainability narrative — what's coming back down.
+        """
+        decays = fetch_recent_decays(limit=limit)
+        if not decays:
+            return {"available": False, "note": "decay data unavailable"}
+        return {
+            "available": True,
+            "count": len(decays),
+            "events": [
+                {
+                    "norad_id": d.norad_id,
+                    "intl_des": d.intl_des,
+                    "country": d.country,
+                    "decay_epoch": d.decay_epoch,
+                    "msg_type": d.msg_type,
+                }
+                for d in decays
+            ],
+            "note": "Predicted reentries (not confirmed). Powers deorbit/sustainability tracking.",
+            "source": "Space-Track decay",
+        }
+
+    def search_literature(self, query: str, rows: int = 5) -> dict:
+        """Search NASA ADS for peer-reviewed papers (needs a free ADS_API_KEY).
+
+        Lets the analyst cite real literature on conjunction assessment, drag
+        modeling, collision probability, etc. Returns [] if no key is configured.
+        """
+        papers = search_ads(query, rows=rows)
+        if not papers:
+            return {
+                "available": False,
+                "count": 0,
+                "note": "Literature search unavailable (set ADS_API_KEY in .env for NASA ADS).",
+            }
+        return {
+            "available": True,
+            "count": len(papers),
+            "papers": [
+                {
+                    "title": p.title,
+                    "authors": p.authors[:3],
+                    "year": p.year,
+                    "bibcode": p.bibcode,
+                    "url": p.url,
+                    "abstract": p.abstract[:300] + ("..." if len(p.abstract) > 300 else ""),
+                }
+                for p in papers
+            ],
+            "source": "NASA ADS",
+        }
+
     # -- dispatch ------------------------------------------------------------
 
     TOOL_NAMES = [
@@ -416,6 +605,14 @@ class AgentTools:
         "collision_probability_realistic",
         "generate_cdm_message",
         "query_knowledge_base",
+        "get_near_earth_objects",
+        "get_earth_imagery",
+        "get_astronomy_picture",
+        "get_iss_position",
+        "get_astronauts",
+        "get_catalog_statistics",
+        "get_recent_reentries",
+        "search_literature",
     ]
 
     def dispatch(self, tool_name: str, arguments: dict | None = None) -> dict:
@@ -588,6 +785,86 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "query": {"type": "string", "description": "the question or topic to search for"},
                     "k": {"type": "integer", "description": "number of chunks to retrieve (default 3)"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_near_earth_objects",
+            "description": "Get near-Earth objects (asteroids/comets) approaching Earth over the next N days from the NASA NEO Feed — planetary defense. Returns close approaches with hazard flags, miss distances, and velocities.",
+            "parameters": {
+                "type": "object",
+                "properties": {"days": {"type": "integer", "description": "look-ahead window in days (default 7)"}},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_earth_imagery",
+            "description": "Get the latest full-disc Earth imagery from NASA EPIC (DSCOVR satellite) — 'what does Earth look like from space right now?'",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_astronomy_picture",
+            "description": "Get NASA's Astronomy Picture of the Day (APOD) — a daily astronomy engagement hook.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_iss_position",
+            "description": "Get the live position (latitude/longitude) of the International Space Station.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_astronauts",
+            "description": "Get the humans currently in space (count and names/craft).",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_catalog_statistics",
+            "description": "Get catalog statistics by country (Space-Track boxscore) — who owns what's in orbit: active payloads, debris, and decayed-object counts per nation.",
+            "parameters": {
+                "type": "object",
+                "properties": {"top_n": {"type": "integer", "description": "number of top countries to return (default 10)"}},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_recent_reentries",
+            "description": "Get recent predicted reentry/decay events (Space-Track decay class) — what's coming back down (space sustainability).",
+            "parameters": {
+                "type": "object",
+                "properties": {"limit": {"type": "integer", "description": "number of events (default 10)"}},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_literature",
+            "description": "Search NASA ADS for peer-reviewed papers on a topic (e.g. 'collision probability', 'atmospheric drag'). Cite real literature. Requires ADS_API_KEY in .env.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "search query"},
+                    "rows": {"type": "integer", "description": "number of papers (default 5)"},
                 },
                 "required": ["query"],
             },

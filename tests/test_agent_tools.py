@@ -181,9 +181,81 @@ def test_query_knowledge_base_dispatch(tools):
 
 
 def test_tool_and_schema_counts_match(tools):
-    """TOOL_NAMES and TOOL_SCHEMAS must stay in sync (11 tools now)."""
+    """TOOL_NAMES and TOOL_SCHEMAS must stay in sync (19 tools now)."""
     from agent.tools import TOOL_SCHEMAS, AgentTools
 
     assert len(AgentTools.TOOL_NAMES) == len(TOOL_SCHEMAS)
     schema_names = {s["function"]["name"] for s in TOOL_SCHEMAS}
     assert schema_names == set(AgentTools.TOOL_NAMES)
+
+
+# --- Phase A: live data tools (graceful — pass whether or not APIs are up) ---
+
+def test_get_near_earth_objects_tool(tools):
+    result = tools.get_near_earth_objects(days=3)
+    assert "count" in result
+    assert "objects" in result
+    assert result["source"] == "NASA NEO Feed"
+    # If NEOs were returned, they must be well-formed.
+    for obj in result["objects"]:
+        assert "name" in obj
+        assert "hazardous" in obj
+
+
+def test_get_earth_imagery_tool(tools):
+    result = tools.get_earth_imagery()
+    assert "available" in result
+    if result["available"]:
+        assert "latest" in result
+        assert "image_url" in result["latest"]
+
+
+def test_get_astronomy_picture_tool(tools):
+    result = tools.get_astronomy_picture()
+    assert "available" in result
+    if result["available"]:
+        assert "title" in result
+        assert result["media_type"] in ("image", "video")
+
+
+def test_get_iss_position_tool(tools):
+    result = tools.get_iss_position()
+    assert "available" in result
+    if result["available"]:
+        assert -90 <= result["latitude"] <= 90
+        assert -180 <= result["longitude"] <= 180
+        assert result["source"] in ("open-notify", "tle-computed")
+
+
+def test_get_astronauts_tool(tools):
+    result = tools.get_astronauts()
+    assert "number" in result
+    assert isinstance(result["number"], int)
+    assert result["number"] >= 0
+
+
+def test_get_catalog_statistics_tool(tools):
+    result = tools.get_catalog_statistics(top_n=5)
+    assert "available" in result
+    if result["available"]:
+        assert "top_countries" in result
+        assert len(result["top_countries"]) <= 5
+        for c in result["top_countries"]:
+            assert "country" in c
+            assert "orbital_payloads" in c
+
+
+def test_get_recent_reentries_tool(tools):
+    result = tools.get_recent_reentries(limit=5)
+    assert "available" in result
+    if result["available"]:
+        assert "events" in result
+        for e in result["events"]:
+            assert "norad_id" in e
+
+
+def test_search_literature_tool(tools):
+    """Without an ADS key, this degrades gracefully to available=False."""
+    result = tools.search_literature("collision probability", rows=3)
+    assert "available" in result
+    assert "count" in result

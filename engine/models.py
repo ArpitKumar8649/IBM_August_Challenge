@@ -144,3 +144,121 @@ class ManeuverOption(BaseModel):
     post_burn_miss_km: float = Field(description="Predicted miss distance after the burn (km)")
     kind: str = Field(default="", description="cheapest-safe / nominal / conservative")
     satisfies_constraints: bool = True
+
+
+# ============================================================
+# Phase A — external data source models (NASA / Space-Track / Open Notify)
+# ============================================================
+
+
+class NeoCloseApproach(BaseModel):
+    """A single close-approach event for a near-Earth object."""
+
+    date: str
+    relative_velocity_kmh: float = Field(description="relative velocity (km/h)")
+    miss_distance_km: float = Field(description="miss distance (km)")
+    miss_distance_lunar: float = Field(default=0.0, description="miss distance (lunar distances)")
+    orbiting_body: str = "Earth"
+
+
+class NeoObject(BaseModel):
+    """A near-Earth object from the NASA NEO Feed."""
+
+    neo_id: str
+    name: str
+    is_potentially_hazardous: bool = False
+    estimated_diameter_km: float = Field(default=0.0, description="max estimated diameter (km)")
+    close_approaches: list[NeoCloseApproach] = Field(default_factory=list)
+
+
+class EpicImage(BaseModel):
+    """A full-disc Earth image from NASA EPIC (DSCOVR)."""
+
+    identifier: str
+    date: str
+    caption: str = ""
+    centroid_lat: float = 0.0
+    centroid_lon: float = 0.0
+    image_url: str = Field(default="", description="constructed archive image URL")
+
+
+class ApodEntry(BaseModel):
+    """NASA Astronomy Picture of the Day."""
+
+    title: str
+    explanation: str = ""
+    url: str = ""
+    hd_url: str = ""
+    media_type: str = "image"  # "image" or "video"
+    date: str = ""
+
+
+class IssPosition(BaseModel):
+    """Live ISS position (from Open Notify, or TLE-computed fallback)."""
+
+    latitude: float
+    longitude: float
+    timestamp: float = 0.0
+    source: str = "open-notify"  # or "tle-computed"
+
+
+class Astronaut(BaseModel):
+    """A human currently in space."""
+
+    name: str
+    craft: str = ""
+
+
+class Astronauts(BaseModel):
+    """Humans currently in space (Open Notify)."""
+
+    number: int
+    people: list[Astronaut] = Field(default_factory=list)
+
+
+class CountryStats(BaseModel):
+    """Catalog statistics for one country/orbiter (Space-Track boxscore)."""
+
+    country: str
+    country_code: str = ""
+    orbital_payloads: int = Field(default=0, description="active payloads in orbit")
+    orbital_rocket_bodies: int = Field(default=0, description="orbital rocket bodies")
+    orbital_debris: int = Field(default=0, description="orbital debris")
+    orbital_total: int = Field(default=0, description="total objects currently in orbit")
+    decayed_total: int = Field(default=0, description="total objects decayed (reentered)")
+    country_total: int = Field(default=0, description="all-time total objects")
+
+    @property
+    def active_payloads(self) -> int:
+        """Alias for the active-payload count (used by tools/dashboards)."""
+        return self.orbital_payloads
+
+
+class DecayEvent(BaseModel):
+    """A predicted reentry/decay event (Space-Track decay class)."""
+
+    norad_id: int
+    intl_des: str = ""
+    country: str = ""
+    decay_epoch: str = Field(default="", description="predicted decay epoch")
+    msg_epoch: str = ""
+    msg_type: str = ""
+
+
+class LaunchSite(BaseModel):
+    """A launch site (Space-Track launch_site class)."""
+
+    code: str
+    name: str = ""
+    country: str = ""
+
+
+class Paper(BaseModel):
+    """A scholarly paper from NASA ADS."""
+
+    bibcode: str
+    title: str
+    authors: list[str] = Field(default_factory=list)
+    year: str = ""
+    abstract: str = ""
+    url: str = ""

@@ -94,7 +94,7 @@ OrbitWarden is a web-based mission-ops decision-support tool. Give it a satellit
 - **RSW geometry classification** — in-track / radial / cross-track, with maneuverability awareness (debris and rocket bodies can't move — *you* must).
 - **Storm-aware re-screening** — NOAA SWPC + NASA DONKI feed a flag when geomagnetic activity inflates TLE uncertainty near a conjunction's TCA.
 - **Avoidance-maneuver search** — shoot-and-score over a grid of burns, using **numerical two-body propagation** (not linearized approximations), with rocket-equation propellant costing and three curated options (cheapest-safe / nominal / conservative).
-- **Granite judgment agent** — an 11-tool strict contract; the model's *only* way to touch numbers.
+- **Granite judgment agent** — a 19-tool strict contract; the model's *only* way to touch numbers.
 - **Retrieval-augmented analyst (RAG)** — a vector-database memory of space-domain knowledge (conjunction assessment, CDM/ODM standards, collision probability, maneuver planning, drag, validation, operator runbook, sustainability). The analyst answers with **grounded, cited expertise**, not generic prose — see [`docs/RAG_ANALYST.md`](docs/RAG_ANALYST.md).
 - **Output-validation layer** — every number the model writes in prose is checked against the engine's outputs; inventions are flagged. Maneuver cards are server-composed.
 - **Mission-control dashboard** — live conjunction board with ticking TCA countdowns, RSW geometry, maneuver options, and the analyst chat.
@@ -109,6 +109,20 @@ Beyond SGP4 screening, OrbitWarden adds high-fidelity physics where it matters �
 - **Realistic collision probability** (`engine/covariance.py`) — the *general* 2-D Alfriend–Foster formula for arbitrary (correlated) covariance, plus a documented **covariance realism factor** (Foster/Hall). Correctly captures the non-monotonic Pc-vs-covariance behavior for off-center misses.
 - **Fuel-optimal maneuvers** (`engine/fuel_optimal.py`) — the **minimum-Δv** burn for a target miss, optimized via the Clohessy-Wiltshire state-transition matrix and verified numerically. Beats a naive in-track burn.
 - **CCSDS CDM/ODM standards** (`engine/standards.py`) — generates standards-compliant Conjunction Data Messages (CCSDS 508.0-B-1) and Orbit Mean-Elements Messages (CCSDS 502.0-B-2) — interoperable with operational SSA tooling.
+
+### 🌍 Live NASA / Space-Track / Open Notify data (Phase A)
+
+OrbitWarden ingests **real, live space data** — not synthetic samples — through a robust, cached, gracefully-degrading ingestion layer. Each source is exposed as an agent tool, so the analyst weaves live facts into its answers. See [`docs/PHASE_A_DATA_INTEGRATION.md`](docs/PHASE_A_DATA_INTEGRATION.md):
+
+- **NASA NEO Feed** — near-Earth objects approaching Earth (planetary defense), with hazard flags and miss distances.
+- **NASA EPIC** — full-disc Earth imagery from DSCOVR ("what does Earth look like from space right now?").
+- **NASA APOD** — Astronomy Picture of the Day (public engagement).
+- **Open Notify** — live ISS position (with an **SGP4 TLE-computed fallback** so the tracker never breaks) + humans-in-space count.
+- **Space-Track boxscore** — "who owns orbit": active payloads, debris, and decayed-object counts by country (US: 13,454 payloads; 35,385 objects decayed all-time).
+- **Space-Track decay** — predicted reentries (space-sustainability narrative).
+- **NASA ADS** — the analyst cites real peer-reviewed literature.
+
+The agent contract is now **19 tools**. Every source is cached (per-source TTLs), rate-limit-aware, and degrades gracefully — the app never breaks on an API outage.
 
 ---
 
@@ -131,13 +145,13 @@ OrbitWarden is three planes with a hard separation of concerns, plus a trust lay
    │   AI JUDGMENT PLANE        │         │   DETERMINISTIC PHYSICS PLANE    │
    │   (IBM Granite on watsonx) │  tools  │   (Python astrodynamics engine)  │
    │                            │────────▶│                                  │
-   │  · 7-tool strict contract  │         │  · SGP4 propagation (<1mm)       │
+   │  · 19-tool strict contract │         │  · SGP4 propagation (<1mm)       │
    │  · triage & rationale      │         │  · band filter + coarse scan     │
    │  · maneuver selection      │         │  · golden-section TCA refine     │
    │  · what-if reasoning       │         │  · Alfriend–Foster Pc (B-plane)  │
    │  · server-composed cards   │         │  · RSW geometry + risk scoring   │
    └────────────┬───────────────┘         │  · numerical maneuver search     │
-                │                          │  · SATCAT + space-weather ingest │
+                │                          │  · live NASA/SSA/NOAA data       │
    ┌────────────┴───────────────┐         └────────────────▲─────────────────┘
    │   OUTPUT-VALIDATION LAYER   │                          │
    │   · numbers never transit   │      every number flows  │
@@ -289,7 +303,14 @@ Replaying **15 real conjunctions** that the operational Space Surveillance Netwo
 ```
 IBM_August_Challenge/
 ├── engine/                     # deterministic physics plane
-│   ├── ingest/                 # CelesTrak, Space-Track (SATCAT), space weather
+│   ├── ingest/                 # data ingestion (cached, graceful)
+│   │   ├── cache.py            #     TTL disk cache (shared by all sources)
+│   │   ├── celestrak.py        #     CelesTrak GP catalog
+│   │   ├── spacetrack.py       #     Space-Track SATCAT enrichment
+│   │   ├── spacetrack_ext.py   #     Space-Track boxscore / decay / launch_site
+│   │   ├── spaceweather.py     #     NOAA SWPC + NASA DONKI storm flag
+│   │   ├── nasa_open.py        #     NASA NEO Feed / EPIC / APOD / ADS
+│   │   └── open_notify.py      #     live ISS position + astronauts (TLE fallback)
 │   ├── propagate.py            #   vectorized SGP4 wrapper
 │   ├── frames.py               #   RSW frame transforms
 │   ├── screen.py               #   band filter → coarse scan → full scored pipeline
@@ -306,7 +327,7 @@ IBM_August_Challenge/
 │   ├── models.py               #   shared pydantic models
 │   └── cli.py                  #   one-command screening
 ├── agent/                      # AI judgment plane
-│   ├── tools.py                #   the 11-tool contract
+│   ├── tools.py                #   the 19-tool contract
 │   ├── prompts.py              #   system prompt + few-shot
 │   ├── session.py              #   Granite tool-calling loop (watsonx REST)
 │   ├── validator.py            #   output-validation layer
