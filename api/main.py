@@ -1,25 +1,40 @@
-"""FastAPI application — exposes the screening engine and the Granite agent.
+"""FastAPI application — exposes the full OrbitWarden platform.
 
-Endpoints:
-  GET  /api/health
-  GET  /api/satellite                    primary satellite info
-  GET  /api/satellites/{norad_id}        catalog object info
-  GET  /api/events?limit=N               ranked conjunctions
-  GET  /api/events/{event_id}            event detail (RSW geometry, Pc, risk)
-  GET  /api/events/{event_id}/maneuvers  avoidance-maneuver options
-  GET  /api/space-weather                geomagnetic conditions
-  POST /api/chat                         agent conversation (validated)
-  GET  /api/chat/events?message=...      SSE stream of the agent's reasoning
+The API surfaces all 29 agent tools as REST endpoints, organized by capability:
+
+  Core screening (Phase 1-2):
+    GET  /api/health · /api/satellite · /api/satellites/{id} · /api/events
+    GET  /api/events/{id} · /api/events/{id}/maneuvers
+  Advanced astrodynamics:
+    GET  /api/events/{id}/fuel-optimal · /api/events/{id}/collision-probability
+    GET  /api/events/{id}/cdm · /api/events/{id}/drag-uncertainty
+  Space weather (Phase B):
+    GET  /api/space-weather · /api/space-weather/detailed · /api/space-weather/alerts
+  Earth observation (Phase C):
+    GET  /api/ground-track · /api/imagery · /api/disaster
+  Precision ephemerides (Phase D):
+    GET  /api/planet/{body}
+  Astronomy & discovery (Phase E):
+    GET  /api/transients · /api/exoplanets · /api/stars
+  NASA / catalog / engagement (Phase A):
+    GET  /api/neo · /api/earth-image · /api/apod · /api/iss · /api/astronauts
+    GET  /api/catalog-stats · /api/reentries · /api/literature
+  Knowledge base (RAG):
+    GET  /api/knowledge
+  Analyst (Granite agent):
+    POST /api/chat · GET /api/chat/events (SSE stream of the agent's reasoning)
 
 `create_app(ctx)` injects a ToolContext (used by tests); `create_app_from_db()`
-loads the latest screening run from the store (production / demo).
+loads the latest screening run from the store (production).
 """
 
 from __future__ import annotations
 
 import json
+import logging
+import time
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -27,6 +42,14 @@ from pydantic import BaseModel
 from agent.session import AgentLoop, OrbitWardenAgent, WatsonxClient
 from agent.tools import AgentTools, ToolContext
 from agent.validator import Validator
+from api.health import system_health
+
+# Structured logging — one line per request, with method/path/status/latency.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger("orbitwarden.api")
 
 
 class ChatRequest(BaseModel):
@@ -44,6 +67,17 @@ def create_app(ctx: ToolContext, client: WatsonxClient | None = None) -> FastAPI
     )
     tools = AgentTools(ctx)
 
+    @app.middleware("http")
+    async def log_requests(request: Request, call_next):
+        start = time.time()
+        response = await call_next(request)
+        latency_ms = (time.time() - start) * 1000
+        logger.info(
+            "%s %s -> %d (%.0f ms)",
+            request.method, request.url.path, response.status_code, latency_ms,
+        )
+        return response
+
     @app.get("/api/health")
     def health():
         return {
@@ -52,6 +86,12 @@ def create_app(ctx: ToolContext, client: WatsonxClient | None = None) -> FastAPI
             "primary_norad": ctx.primary.norad_id,
             "events": len(ctx.events),
         }
+
+    @app.get("/api/health/full")
+    def health_full():
+        """Detailed operational health: database + every external data source."""
+        return system_health()
+
 
     @app.get("/api/satellite")
     def primary_satellite():
@@ -94,6 +134,120 @@ def create_app(ctx: ToolContext, client: WatsonxClient | None = None) -> FastAPI
     @app.get("/api/space-weather")
     def space_weather():
         return tools.get_space_weather()
+
+    # -- Phase B: space-weather deepening ------------------------------------
+
+    @app.get("/api/space-weather/detailed")
+    def space_weather_detailed():
+        return tools.get_space_weather_detailed()
+
+    @app.get("/api/space-weather/alerts")
+    def space_weather_alerts(days: int = 7):
+        return tools.get_space_weather_alerts(days)
+
+    @app.get("/api/events/{event_id}/drag-uncertainty")
+    def drag_uncertainty(event_id: int):
+        try:
+            return tools.get_drag_uncertainty(event_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+
+    # -- Phase C: Earth observation ------------------------------------------
+
+    @app.get("/api/ground-track")
+    def ground_track(norad_id: int | None = None, minutes: int = 90):
+        return tools.get_ground_track(norad_id, minutes)
+
+    @app.get("/api/imagery")
+    def imagery(norad_id: int | None = None, collection: str = "sentinel-2", max_cloud: float = 30.0):
+        return tools.get_imagery_under_satellite(norad_id, collection, max_cloud)
+
+    @app.get("/api/disaster")
+    def disaster(west: float, south: float, east: float, north: float, days: int = 30):
+        return tools.get_disaster_data(west, south, east, north, days)
+
+    # -- Phase D: precision ephemerides --------------------------------------
+
+    @app.get("/api/planet/{body}")
+    def planet_position(body: str, days: int = 1):
+        return tools.get_planet_position(body, days)
+
+    # -- Phase E: astronomy & discovery --------------------------------------
+
+    @app.get("/api/transients")
+    def transients(limit: int = 10):
+        return tools.get_recent_transients(limit)
+
+    @app.get("/api/exoplanets")
+    def exoplanets(since_year: int = 2020, limit: int = 10):
+        return tools.get_exoplanet_stats(since_year, limit)
+
+    @app.get("/api/stars")
+    def stars(ra: float, dec: float, radius_arcmin: float = 5.0, limit: int = 10):
+        return tools.get_stars_near(ra, dec, radius_arcmin, limit)
+
+    # -- Phase A: NASA / catalog / engagement --------------------------------
+
+    @app.get("/api/neo")
+    def near_earth_objects(days: int = 7):
+        return tools.get_near_earth_objects(days)
+
+    @app.get("/api/earth-image")
+    def earth_image():
+        return tools.get_earth_imagery()
+
+    @app.get("/api/apod")
+    def apod():
+        return tools.get_astronomy_picture()
+
+    @app.get("/api/iss")
+    def iss_position():
+        return tools.get_iss_position()
+
+    @app.get("/api/astronauts")
+    def astronauts():
+        return tools.get_astronauts()
+
+    @app.get("/api/catalog-stats")
+    def catalog_stats(top_n: int = 10):
+        return tools.get_catalog_statistics(top_n)
+
+    @app.get("/api/reentries")
+    def reentries(limit: int = 10):
+        return tools.get_recent_reentries(limit)
+
+    @app.get("/api/literature")
+    def literature(query: str, rows: int = 5):
+        return tools.search_literature(query, rows)
+
+    # -- knowledge base (RAG) ------------------------------------------------
+
+    @app.get("/api/knowledge")
+    def knowledge(query: str, k: int = 3):
+        return tools.query_knowledge_base(query, k)
+
+    # -- advanced astrodynamics ----------------------------------------------
+
+    @app.get("/api/events/{event_id}/fuel-optimal")
+    def fuel_optimal(event_id: int, target_miss_km: float = 10.0, lead_time_min: float = 60.0):
+        try:
+            return tools.fuel_optimal_maneuver(event_id, target_miss_km, lead_time_min)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+
+    @app.get("/api/events/{event_id}/collision-probability")
+    def collision_probability(event_id: int, realism_factor: float = 2.0):
+        try:
+            return tools.collision_probability_realistic(event_id, realism_factor)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+
+    @app.get("/api/events/{event_id}/cdm")
+    def cdm_message(event_id: int):
+        try:
+            return tools.generate_cdm_message(event_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
 
     @app.post("/api/chat")
     def chat(req: ChatRequest):

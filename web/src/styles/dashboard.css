@@ -231,3 +231,137 @@
   .detail-grid { grid-template-columns: 1fr 1fr; }
   .man-grid { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   Phase F — tabbed space-situation platform
+   ============================================================ */
+
+/* ---------- tab bar ---------- */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(5, 7, 15, 0.6);
+  overflow-x: auto;
+  position: sticky;
+  top: 60px;
+  z-index: 39;
+}
+.tab {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 14px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.2s, border-color 0.2s;
+}
+.tab:hover { color: var(--ink-2); }
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tab-content { flex: 1; }
+.tab-pad { padding: 24px; max-width: 1200px; margin: 0 auto; }
+
+/* ---------- shared panel helpers ---------- */
+.panel-loading, .panel-empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 0.9rem;
+}
+.panel-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.stat-panel { padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; }
+.big-score { display: flex; align-items: baseline; gap: 12px; }
+.drivers { display: flex; flex-wrap: wrap; gap: 8px; }
+.signal-list { display: flex; flex-direction: column; gap: 10px; }
+.signal { display: flex; justify-content: space-between; align-items: center; }
+.signal-l { font-size: 0.78rem; color: var(--ink-2); }
+.signal-v { font-size: 0.9rem; color: var(--ink-1); }
+.danger-text { color: var(--danger); }
+.good-text { color: var(--good); }
+.warn-text { color: var(--warn); }
+
+/* ---------- Earth observation ---------- */
+.eo-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 20px; }
+.eo-grid .panel { padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+.track-meta { font-size: 0.74rem; color: var(--ink-2); }
+.track-map { width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--line); }
+.track-bg { fill: var(--bg-1); }
+.track-grid { stroke: var(--line); stroke-width: 0.5; }
+.track-equator { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 4 4; }
+.track-path { fill: none; stroke: var(--accent); stroke-width: 1.5; opacity: 0.8; }
+.track-now { fill: var(--good); }
+.track-now-ring { fill: none; stroke: var(--good); stroke-width: 1; opacity: 0.4; }
+.scene-list { display: flex; flex-direction: column; gap: 12px; }
+.scene-card { display: flex; gap: 12px; align-items: center; background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; }
+.scene-thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 6px; background: var(--bg-2); }
+.scene-meta { font-size: 0.7rem; color: var(--ink-2); display: flex; flex-direction: column; gap: 2px; }
+.neo-list { display: flex; flex-direction: column; gap: 8px; }
+.neo-row { display: flex; align-items: center; gap: 10px; font-size: 0.78rem; }
+.neo-flag { font-size: 0.68rem; font-family: var(--font-mono); }
+.neo-flag.danger { color: var(--danger); }
+.neo-flag.good { color: var(--ink-3); }
+.neo-name { font-weight: 600; flex: 1; }
+.neo-meta { font-size: 0.68rem; color: var(--ink-3); }
+
+/* ---------- discovery ---------- */
+.disco-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 20px; }
+.disco-grid .panel { padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+.transient-list, .star-list, .recent-exos { display: flex; flex-direction: column; gap: 8px; }
+.transient-row { display: flex; align-items: center; gap: 10px; font-size: 0.76rem; }
+.transient-oid { color: var(--accent); font-size: 0.72rem; }
+.transient-class { font-size: 0.68rem; color: var(--warn); }
+.transient-meta { font-size: 0.66rem; color: var(--ink-3); margin-left: auto; }
+.method-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.exo-row { font-size: 0.72rem; color: var(--ink-2); }
+.star-row { display: flex; gap: 10px; font-size: 0.72rem; color: var(--ink-2); }
+.star-id { color: var(--accent); }
+.star-mag { color: var(--warn); }
+.star-pos { margin-left: auto; color: var(--ink-3); }
+
+/* ---------- solar system ---------- */
+.solar-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 20px; }
+.solar-grid .panel { padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+.planet-list { display: flex; flex-direction: column; gap: 10px; }
+.planet-row { display: flex; justify-content: space-between; align-items: center; }
+.planet-name { font-weight: 600; text-transform: capitalize; }
+.planet-dist { font-size: 0.82rem; color: var(--ink-1); }
+.planet-km { color: var(--ink-3); font-size: 0.72rem; }
+.planet-na { color: var(--ink-3); }
+.astro-list { display: flex; flex-direction: column; gap: 6px; }
+.astro-row { font-size: 0.74rem; color: var(--ink-2); }
+.astro-craft { color: var(--ink-3); }
+
+/* ---------- system health ---------- */
+.health-wrap { display: grid; grid-template-columns: 1fr 1.4fr; gap: 20px; }
+.health-summary { padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; }
+.health-head { display: flex; justify-content: space-between; align-items: center; }
+.btn-sm { padding: 0.4em 0.9em; font-size: 0.74rem; }
+.health-overall { display: flex; align-items: center; gap: 14px; }
+.health-badge { font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600; padding: 0.4em 0.9em; border-radius: 8px; }
+.health-badge.good { color: var(--good); background: var(--good-soft); }
+.health-badge.warn { color: var(--warn); background: var(--warn-soft); }
+.health-time { font-size: 0.7rem; color: var(--ink-3); }
+.health-db { display: flex; flex-direction: column; gap: 4px; }
+.health-counts { display: flex; gap: 14px; font-size: 0.78rem; }
+.health-wrap .panel:last-child { padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+.source-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; }
+.source-row { display: flex; align-items: center; gap: 8px; font-size: 0.74rem; }
+.source-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); flex-shrink: 0; }
+.source-dot.good { background: var(--good); }
+.source-dot.warn { background: var(--warn); }
+.source-name { flex: 1; color: var(--ink-2); }
+.source-detail { font-size: 0.66rem; color: var(--ink-3); }
+
+@media (max-width: 1000px) {
+  .panel-grid-2, .eo-grid, .disco-grid, .solar-grid, .health-wrap { grid-template-columns: 1fr; }
+  .source-grid { grid-template-columns: 1fr; }
+}

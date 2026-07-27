@@ -163,6 +163,17 @@ Extends OrbitWarden from *protecting satellites* to *discovering new things* —
 
 Agent contract now **29 tools** (`get_recent_transients`, `get_exoplanet_stats`, `get_stars_near`). The **data-integration plan (Phases A–E) is complete** — OrbitWarden ingests live data from NASA, ESA, NOAA, the Space Surveillance Network, ZTF, the Exoplanet Archive, and Gaia.
 
+### 🛰️ A real, operable platform (Phase F)
+
+OrbitWarden is a **deployed service**, not a one-off script — see [`docs/PHASE_F_PLATFORM.md`](docs/PHASE_F_PLATFORM.md) and the [operations runbook](docs/OPERATIONS.md):
+
+- **Full API surface** — all 29 tools exposed as REST endpoints (31 routes).
+- **Space-situation dashboard** — a 6-panel frontend: Mission Control, Space Weather, Earth Observation (ground-track map + Sentinel-2 imagery + NEO watch), Discovery (transients + exoplanets + Gaia), Solar System (planet positions + live ISS), and System Health.
+- **Operational health monitoring** — `/api/health/full` reports database + every data source's freshness (ok / stale / unknown) and an overall status.
+- **Scheduled batch service** — the screening runs on a schedule and survives failures (never crashes unattended).
+- **Structured logging + graceful degradation** — every data source degrades gracefully; the platform is partially degraded and still useful.
+- **Deployed** at a public URL, serving live data.
+
 ---
 
 ## 🏗️ Architecture & AI Approach
@@ -382,16 +393,19 @@ IBM_August_Challenge/
 │   ├── vectorstore.py          #   cosine-similarity vector store (pgvector-ready)
 │   └── rag.py                  #   retrieval-augmented generation
 ├── api/                        # FastAPI layer (REST + SSE)
-├── batch/                      # nightly screening orchestration
+│   ├── main.py                 #   all 29 tools as REST endpoints (31 routes)
+│   └── health.py               #   operational health monitoring (per-source)
+├── batch/                      # scheduled screening service (survives failures)
 ├── validation/                 # SOCRATES + CDM validation harnesses
 ├── web/                        # React + Vite + TypeScript frontend
 │   └── src/
-│       ├── pages/              #   Landing + Dashboard
+│       ├── pages/              #   Landing + Dashboard (tabbed platform)
+│       ├── panels/             #   Space Weather, Earth Obs, Discovery, Solar System, Health
 │       ├── components/         #   OrbitScene, charts, clocks, reveals
 │       ├── lib/                #   API client (with sample fallback)
 │       └── styles/             #   design system
-├── tests/                      # 113 tests
-├── docs/                       # results, reports, guides
+├── tests/                      # 349 tests
+├── docs/                       # results, reports, guides, operations runbook
 └── .github/workflows/ci.yml    # CI
 ```
 

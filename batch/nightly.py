@@ -4,15 +4,23 @@ For each watched satellite: fetch catalog (CelesTrak, Space-Track fallback) ->
 coarse scan -> SATCAT-enrich the candidate secondaries (one batched query) ->
 fetch space weather -> refine + score every candidate -> persist to the store.
 
-Runnable as a one-pass script (Code Engine will schedule it as a cron later):
-    python -m batch.nightly                 # screen the ISS
+Modes:
+    python -m batch.nightly                 # one-pass: screen the ISS
     python -m batch.nightly --norad 25544 63210   # ISS + JINJUSAT-1B
+    python -m batch.nightly --schedule    # run as a scheduled service (recurring)
+    python -m batch.nightly --schedule --interval-hours 12  # every 12 h
+
+As a scheduled service, each run is wrapped in error handling so a failure
+(e.g. a data source being down) logs an error and the service keeps running for
+the next interval — it never crashes unattended.
 """
 
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
+import time
 from pathlib import Path
 
 import httpx
@@ -25,6 +33,12 @@ from engine.ingest.spacetrack import enrich
 from engine.models import ScoredConjunction, ScreeningConfig, ScreeningRun
 from engine.screen import analyze_conjunctions, screen_satellite
 from engine.storage import ScreeningStore
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [batch] %(message)s",
+)
+logger = logging.getLogger("orbitwarden.batch")
 
 WATCHED = [25544]  # ISS — add university CubeSat NORAD ids here (e.g. 63210 JINJUSAT-1B)
 
@@ -39,7 +53,7 @@ def fetch_catalog(client: httpx.Client, group: str | None, watched: list[int]):
     try:
         catalog = fetch_group(group) if group else fetch_groups()
     except Exception as exc:  # noqa: BLE001 — any CelesTrak failure -> fallback
-        print(f"  CelesTrak unavailable ({exc}); falling back to Space-Track")
+        logger.warning("CelesTrak unavailable (%s); falling back to Space-Track", exc)
         from validation.benchmark import fetch_iss, fetch_starlink
 
         catalog = fetch_starlink(client)
@@ -63,14 +77,14 @@ def screen_one(
     """Run the full pipeline for one satellite and persist the results."""
     primary = next((o for o in catalog if o.norad_id == primary_norad), None)
     if primary is None:
-        print(f"  NORAD {primary_norad} not in catalog — skipping")
+        logger.warning("NORAD %d not in catalog — skipping", primary_norad)
         return None
 
-    print(f"\nScreening {primary.name} (NORAD {primary.norad_id})...")
+    logger.info("Screening %s (NORAD %d)...", primary.name, primary.norad_id)
     candidates, run = screen_satellite(primary, catalog, config)
-    print(
-        f"  band filter {run.catalog_size} -> {run.band_filtered_size}, "
-        f"{run.candidates_found} coarse candidates in {run.duration_s:.1f}s"
+    logger.info(
+        "band filter %d -> %d, %d coarse candidates in %.1fs",
+        run.catalog_size, run.band_filtered_size, run.candidates_found, run.duration_s,
     )
 
     # Enrich the closest candidate secondaries (one batched SATCAT query) —
@@ -89,12 +103,12 @@ def screen_one(
     )[:200]
     cand_ids = [c.secondary_norad for c in closest] + [primary.norad_id]
     object_info = enrich(cand_ids, client)
-    print(f"  SATCAT enrichment: {len(object_info)} objects")
+    logger.info("SATCAT enrichment: %d objects", len(object_info))
 
     space_weather = fetch_space_weather(client)
-    print(
-        f"  space weather: max Kp {space_weather.max_kp_3day:.1f}, "
-        f"active storm {space_weather.active_storm}"
+    logger.info(
+        "space weather: max Kp %.1f, active storm %s",
+        space_weather.max_kp_3day, space_weather.active_storm,
     )
 
     catalog_by_id = {o.norad_id: o for o in catalog}
@@ -107,7 +121,7 @@ def screen_one(
     store.save_objects(object_info)
     # Persist the full context so the API/agent can serve this run without re-screening.
     store.save_context(run_id, scored, catalog_by_id, object_info)
-    print(f"  persisted run #{run_id}: {len(scored)} scored events")
+    logger.info("persisted run #%d: %d scored events", run_id, len(scored))
     return scored, run
 
 
@@ -128,6 +142,23 @@ def print_scored(scored: list[ScoredConjunction], top: int = 10) -> None:
     print("  (* = secondary cannot maneuver — primary must move;  ⚠ = storm flag)")
 
 
+def run_screening(norad_list: list[int], group: str | None, days: float, db: str, top: int) -> None:
+    """One full screening pass over all watched satellites. Raises on hard failure."""
+    config = ScreeningConfig(window_days=days)
+    store = ScreeningStore(db)
+    try:
+        with httpx.Client(timeout=180.0) as client:
+            logger.info("Fetching catalog...")
+            catalog = fetch_catalog(client, group, norad_list)
+            logger.info("Catalog: %d objects", len(catalog))
+            for norad in norad_list:
+                result = screen_one(norad, catalog, store, config, client)
+                if result:
+                    print_scored(result[0], top)
+    finally:
+        store.close()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Nightly screening batch")
     parser.add_argument("--norad", type=int, nargs="*", default=WATCHED)
@@ -135,22 +166,34 @@ def main() -> int:
     parser.add_argument("--days", type=float, default=7.0)
     parser.add_argument("--top", type=int, default=10)
     parser.add_argument("--db", type=str, default="data/orbitwarden.db")
+    parser.add_argument("--schedule", action="store_true", help="run as a recurring scheduled service")
+    parser.add_argument("--interval-hours", type=float, default=24.0, help="hours between scheduled runs")
     args = parser.parse_args()
 
-    config = ScreeningConfig(window_days=args.days)
-    store = ScreeningStore(args.db)
-    try:
-        with httpx.Client(timeout=180.0) as client:
-            print("Fetching catalog...")
-            catalog = fetch_catalog(client, args.group, args.norad)
-            print(f"Catalog: {len(catalog)} objects")
-            for norad in args.norad:
-                result = screen_one(norad, catalog, store, config, client)
-                if result:
-                    print_scored(result[0], args.top)
-    finally:
-        store.close()
-    return 0
+    if not args.schedule:
+        # One-pass mode.
+        try:
+            run_screening(args.norad, args.group, args.days, args.db, args.top)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Screening run failed: %s", exc)
+            return 1
+        return 0
+
+    # Scheduled service mode: run forever, surviving individual failures.
+    logger.info(
+        "Starting scheduled screening service (every %.1f h, satellites: %s)",
+        args.interval_hours, args.norad,
+    )
+    interval_s = args.interval_hours * 3600.0
+    while True:
+        try:
+            logger.info("=== scheduled screening run starting ===")
+            run_screening(args.norad, args.group, args.days, args.db, args.top)
+            logger.info("=== scheduled screening run complete ===")
+        except Exception as exc:  # noqa: BLE001 — never crash the service
+            logger.error("Scheduled run failed (will retry next interval): %s", exc)
+        logger.info("Sleeping %.1f h until next run...", args.interval_hours)
+        time.sleep(interval_s)
 
 
 if __name__ == "__main__":
