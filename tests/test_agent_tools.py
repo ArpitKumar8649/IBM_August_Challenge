@@ -331,3 +331,29 @@ def test_get_disaster_data_tool(tools):
     assert "available" in result
     assert "count" in result
     assert "bbox" in result
+
+
+# --- Phase D: precision ephemerides tool (graceful) ---
+
+def test_get_planet_position_tool(tools):
+    result = tools.get_planet_position("mars", days=1)
+    assert "available" in result
+    if result["available"]:
+        assert "position_eci_km" in result
+        assert "velocity_eci_kms" in result
+        assert "distance_from_earth_au" in result
+        # Mars is ~0.4–2.7 AU from Earth.
+        assert 0.3 < result["distance_from_earth_au"] < 3.0
+
+
+def test_get_planet_position_sun(tools):
+    """The Sun should be ~1 AU from Earth."""
+    result = tools.get_planet_position("sun", days=1)
+    assert "available" in result
+    if result["available"]:
+        assert 0.9 < result["distance_from_earth_au"] < 1.1
+
+
+def test_get_planet_position_unknown_body(tools):
+    result = tools.get_planet_position("krypton", days=1)
+    assert result["available"] is False

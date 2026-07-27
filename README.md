@@ -94,7 +94,7 @@ OrbitWarden is a web-based mission-ops decision-support tool. Give it a satellit
 - **RSW geometry classification** — in-track / radial / cross-track, with maneuverability awareness (debris and rocket bodies can't move — *you* must).
 - **Storm-aware re-screening** — NOAA SWPC + NASA DONKI feed a flag when geomagnetic activity inflates TLE uncertainty near a conjunction's TCA.
 - **Avoidance-maneuver search** — shoot-and-score over a grid of burns, using **numerical two-body propagation** (not linearized approximations), with rocket-equation propellant costing and three curated options (cheapest-safe / nominal / conservative).
-- **Granite judgment agent** — a 25-tool strict contract; the model's *only* way to touch numbers.
+- **Granite judgment agent** — a 26-tool strict contract; the model's *only* way to touch numbers.
 - **Retrieval-augmented analyst (RAG)** — a vector-database memory of space-domain knowledge (conjunction assessment, CDM/ODM standards, collision probability, maneuver planning, drag, validation, operator runbook, sustainability). The analyst answers with **grounded, cited expertise**, not generic prose — see [`docs/RAG_ANALYST.md`](docs/RAG_ANALYST.md).
 - **Output-validation layer** — every number the model writes in prose is checked against the engine's outputs; inventions are flagged. Maneuver cards are server-composed.
 - **Mission-control dashboard** — live conjunction board with ticking TCA countdowns, RSW geometry, maneuver options, and the analyst chat.
@@ -144,6 +144,14 @@ Connects orbit to *Earth impact* — "what is my satellite looking at right now?
 
 The agent contract is now **25 tools** (`get_ground_track`, `get_imagery_under_satellite`, `get_disaster_data`).
 
+### 🪐 Precision ephemerides (Phase D)
+
+Deep-space awareness + a physically-correct SRP model — see [`docs/PHASE_D_PRECISION_EPHEMERIDES.md`](docs/PHASE_D_PRECISION_EPHEMERIDES.md):
+
+- **JPL Horizons client** (`engine/ingest/horizons.py`) — precision VECTOR ephemerides (ICRF/J2000) for planets, the Moon, and the Sun; body name→code lookup; geocentric Sun direction; **Earth-shadow (eclipse) test**.
+- **Real Sun direction in SRP** (`engine/precision.py`) — the solar-radiation-pressure model now uses the **real Sun direction** from Horizons (not a default) and **zeroes SRP in Earth's shadow** — the force points away from the *real* Sun and vanishes during eclipse (~35 min/orbit in LEO).
+- **`get_planet_position`** agent tool — "where is Mars right now?" (geocentric state vector + distance in km/AU). Agent contract now **26 tools**.
+
 ---
 
 ## 🏗️ Architecture & AI Approach
@@ -165,7 +173,7 @@ OrbitWarden is three planes with a hard separation of concerns, plus a trust lay
    │   AI JUDGMENT PLANE        │         │   DETERMINISTIC PHYSICS PLANE    │
    │   (IBM Granite on watsonx) │  tools  │   (Python astrodynamics engine)  │
    │                            │────────▶│                                  │
-   │  · 25-tool strict contract │         │  · SGP4 propagation (<1mm)       │
+   │  · 26-tool strict contract │         │  · SGP4 propagation (<1mm)       │
    │  · triage & rationale      │         │  · band filter + coarse scan     │
    │  · maneuver selection      │         │  · golden-section TCA refine     │
    │  · what-if reasoning       │         │  · Alfriend–Foster Pc (B-plane)  │
@@ -333,7 +341,8 @@ IBM_August_Challenge/
 │   │   ├── open_notify.py      #     live ISS position + astronauts (TLE fallback)
 │   │   ├── swpc_products.py    #     NOAA SWPC multi-signal + storm-risk composite
 │   │   ├── donki_ext.py        #     NASA DONKI all notification types + causal chains
-│   │   └── stac_client.py      #     earth-search imagery + Copernicus CLMS burnt-area
+│   │   ├── stac_client.py      #     earth-search imagery + Copernicus CLMS burnt-area
+│   │   └── horizons.py         #     JPL Horizons ephemerides + Sun direction + eclipse
 │   ├── ground_track.py         #   sub-satellite ground track + bbox (GMST)
 │   ├── propagate.py            #   vectorized SGP4 wrapper
 │   ├── frames.py               #   RSW frame transforms
@@ -352,7 +361,7 @@ IBM_August_Challenge/
 │   ├── models.py               #   shared pydantic models
 │   └── cli.py                  #   one-command screening
 ├── agent/                      # AI judgment plane
-│   ├── tools.py                #   the 25-tool contract
+│   ├── tools.py                #   the 26-tool contract
 │   ├── prompts.py              #   system prompt + few-shot
 │   ├── session.py              #   Granite tool-calling loop (watsonx REST)
 │   ├── validator.py            #   output-validation layer

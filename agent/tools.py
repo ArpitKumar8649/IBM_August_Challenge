@@ -40,6 +40,7 @@ from engine.ingest.swpc_products import (
 )
 from engine.ingest.donki_ext import analyze_donki, fetch_donki_all
 from engine.ingest.stac_client import search_burnt_area, search_imagery
+from engine.ingest.horizons import fetch_body_state, sun_direction_geocentric
 from engine.drag_uncertainty import drag_uncertainty_band
 from engine.ground_track import ground_track, ground_track_bbox, ground_track_center
 from agent.rag import get_retriever
@@ -826,6 +827,46 @@ class AgentTools:
             "source": "Copernicus CLMS (Data Space STAC)",
         }
 
+    # -- Phase D: precision ephemerides tools --------------------------------
+
+    def get_planet_position(self, body: str, days: int = 1) -> dict:
+        """Precision position/velocity of a solar-system body from JPL Horizons.
+
+        Answers "where is Mars right now?" — high-precision ephemeris (ICRF/J2000,
+        geocentric) for planets, the Moon, and the Sun. Enables deep-space awareness
+        and feeds the SRP model with the real Sun direction.
+
+        Args:
+            body: a body name (sun, mercury, venus, earth, moon, mars, jupiter,
+                saturn, uranus, neptune, pluto) or a raw Horizons COMMAND code.
+            days: ephemeris window (days from today).
+        """
+        from datetime import date, timedelta
+
+        start = date.today()
+        stop = start + timedelta(days=max(days, 1))
+        states = fetch_body_state(body, start.isoformat(), stop.isoformat(), "1 d")
+        if not states:
+            return {
+                "available": False,
+                "note": f"Could not fetch ephemeris for '{body}' (unknown body or Horizons unavailable).",
+            }
+        s = states[0]
+        r = s.r_eci
+        v = s.v_eci
+        distance_km = (r[0] ** 2 + r[1] ** 2 + r[2] ** 2) ** 0.5
+        return {
+            "available": True,
+            "body": body,
+            "time": s.time,
+            "position_eci_km": {"x": round(r[0], 3), "y": round(r[1], 3), "z": round(r[2], 3)},
+            "velocity_eci_kms": {"vx": round(v[0], 6), "vy": round(v[1], 6), "vz": round(v[2], 6)},
+            "distance_from_earth_km": round(distance_km, 1),
+            "distance_from_earth_au": round(distance_km / 1.495978707e8, 4),
+            "frame": "ICRF/J2000, geocentric",
+            "source": "JPL Horizons",
+        }
+
     # -- dispatch ------------------------------------------------------------
 
     TOOL_NAMES = [
@@ -854,6 +895,7 @@ class AgentTools:
         "get_ground_track",
         "get_imagery_under_satellite",
         "get_disaster_data",
+        "get_planet_position",
     ]
 
     def dispatch(self, tool_name: str, arguments: dict | None = None) -> dict:
@@ -1186,6 +1228,21 @@ TOOL_SCHEMAS = [
                     "days": {"type": "integer", "description": "look-back window in days (default 30)"},
                 },
                 "required": ["west", "south", "east", "north"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_planet_position",
+            "description": "Get the precision position/velocity of a solar-system body from JPL Horizons — 'where is Mars right now?' Returns geocentric ICRF/J2000 state vector and distance (km and AU). Bodies: sun, mercury, venus, earth, moon, mars, jupiter, saturn, uranus, neptune, pluto (or a raw Horizons code).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "body": {"type": "string", "description": "body name or Horizons code"},
+                    "days": {"type": "integer", "description": "ephemeris window in days (default 1)"},
+                },
+                "required": ["body"],
             },
         },
     },

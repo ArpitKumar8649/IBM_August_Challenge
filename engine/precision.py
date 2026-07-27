@@ -72,19 +72,29 @@ def srp_acceleration(
     mass_kg: float,
     cr: float = 1.3,
     sun_dir: np.ndarray | None = None,
+    check_shadow: bool = False,
 ) -> np.ndarray:
     """Solar radiation pressure acceleration (km/s²), cannonball model.
 
     a_SRP = -P · Cr · (A/m) · ŝ_sun
     where P is the SRP pressure at 1 AU and ŝ_sun is the Sun direction.
 
-    For a default sun direction (anti-Earth at equinox), this is approximate;
-    pass a real sun direction for precision.
+    If sun_dir is None, a default (+X, equinox approximation) is used; pass the
+    real geocentric Sun direction (from JPL Horizons) for precision. If
+    check_shadow is True and the satellite is in Earth's shadow, SRP is zero
+    (eclipse).
     """
     if sun_dir is None:
         # Default: Sun along +X (equinox approximation) — anti-sunward force
         sun_dir = np.array([1.0, 0.0, 0.0])
     sun_hat = sun_dir / np.linalg.norm(sun_dir)
+
+    # Eclipse check: no SRP in Earth's shadow.
+    if check_shadow:
+        from engine.ingest.horizons import in_earth_shadow
+
+        if in_earth_shadow(np.asarray(r, float), sun_hat.tolist()):
+            return np.zeros(3)
 
     # SRP pressure at 1 AU: P = S/c ≈ 4.56e-6 N/m²
     p_srp = 4.56e-6  # N/m² = kg/(m·s²)
@@ -111,6 +121,8 @@ def precision_propagate(
     f107: float = DEFAULT_F107,
     f107a: float = DEFAULT_F107A,
     ap: float = DEFAULT_AP,
+    sun_dir: np.ndarray | None = None,
+    srp_eclipse: bool = True,
     rtol: float = 1e-11,
     atol: float = 1e-11,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -123,6 +135,9 @@ def precision_propagate(
         mass_kg, area_m2, cd, cr: spacecraft parameters.
         start_time: epoch for space-weather-dependent drag (defaults to now).
         f107, f107a, ap: space-weather indices for drag.
+        sun_dir: geocentric Sun unit vector (ICRF) for SRP; if None and SRP is
+            on, fetched once from JPL Horizons (falls back to +X default).
+        srp_eclipse: if True, zero SRP when the satellite is in Earth's shadow.
         rtol, atol: integrator tolerances.
 
     Returns:
@@ -130,6 +145,21 @@ def precision_propagate(
     """
     if start_time is None:
         start_time = datetime.now(timezone.utc)
+
+    # Resolve the Sun direction once (outside the integrator) for SRP.
+    srp_sun_dir = None
+    if include_srp:
+        if sun_dir is not None:
+            srp_sun_dir = np.asarray(sun_dir, float)
+        else:
+            try:
+                from engine.ingest.horizons import sun_direction_geocentric
+
+                fetched = sun_direction_geocentric(start_time.date().isoformat())
+                if fetched is not None:
+                    srp_sun_dir = np.asarray(fetched, float)
+            except Exception:  # noqa: BLE001 — fall back to default in srp_acceleration
+                srp_sun_dir = None
 
     def rhs(t: float, y: np.ndarray) -> np.ndarray:
         r = y[:3]
@@ -151,9 +181,12 @@ def precision_propagate(
                 cd=cd, f107=f107, f107a=f107a, ap=ap,
             )
 
-        # Solar radiation pressure
+        # Solar radiation pressure (real Sun direction + eclipse check)
         if include_srp:
-            a += srp_acceleration(r, area_m2, mass_kg, cr)
+            a += srp_acceleration(
+                r, area_m2, mass_kg, cr,
+                sun_dir=srp_sun_dir, check_shadow=srp_eclipse,
+            )
 
         return np.concatenate([v, a])
 

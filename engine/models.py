@@ -366,3 +366,18 @@ class BurntAreaItem(BaseModel):
     collection: str = ""
     datetime: str = ""
     bbox: list[float] = Field(default_factory=list)
+
+
+# ============================================================
+# Phase D — precision ephemerides (JPL Horizons)
+# ============================================================
+
+
+class EphemerisState(BaseModel):
+    """A precision state vector from JPL Horizons (ICRF/J2000 frame)."""
+
+    body_name: str = ""
+    time: str = Field(description="epoch (ISO or Horizons calendar format)")
+    jd: float = Field(default=0.0, description="Julian date (TDB)")
+    r_eci: list[float] = Field(default_factory=list, description="position [x,y,z] (km), ICRF/J2000")
+    v_eci: list[float] = Field(default_factory=list, description="velocity [vx,vy,vz] (km/s), ICRF/J2000")
