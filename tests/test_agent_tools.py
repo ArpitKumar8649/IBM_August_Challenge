@@ -160,3 +160,30 @@ def test_dispatch_new_tools(tools):
     assert "pc_realistic" in r2
     r3 = tools.dispatch("generate_cdm_message", {"event_id": 1})
     assert "cdm" in r3
+
+
+def test_query_knowledge_base_tool(tools):
+    """The RAG tool retrieves relevant, cited knowledge."""
+    result = tools.query_knowledge_base("How is collision probability computed?", k=3)
+    assert "context" in result
+    assert "citations" in result
+    assert result["count"] >= 1
+    # Should surface collision-probability knowledge
+    topics = {c["topic"] for c in result["citations"]}
+    assert "collision-probability" in topics
+
+
+def test_query_knowledge_base_dispatch(tools):
+    """The RAG tool is routable via dispatch."""
+    result = tools.dispatch("query_knowledge_base", {"query": "avoidance maneuver propellant", "k": 2})
+    assert "context" in result
+    assert result["count"] >= 1
+
+
+def test_tool_and_schema_counts_match(tools):
+    """TOOL_NAMES and TOOL_SCHEMAS must stay in sync (11 tools now)."""
+    from agent.tools import TOOL_SCHEMAS, AgentTools
+
+    assert len(AgentTools.TOOL_NAMES) == len(TOOL_SCHEMAS)
+    schema_names = {s["function"]["name"] for s in TOOL_SCHEMAS}
+    assert schema_names == set(AgentTools.TOOL_NAMES)

@@ -22,11 +22,16 @@ WORKFLOW:
 - Start with list_conjunctions to see the ranked threats.
 - Use get_event_details for the geometry and object card of any event you discuss.
 - Use search_maneuvers (passing the operator's constraints) to get avoidance options.
+- Use fuel_optimal_maneuver for the minimum-Δv burn; collision_probability_realistic
+  for the realism-adjusted Pc; generate_cdm_message for a standards-compliant CDM.
 - Use repropagate_with_burn for what-if questions.
 - Use get_space_weather when timing/storms matter.
+- Use query_knowledge_base to ground your explanations in domain expertise and cite
+  sources (conjunction assessment, CDM/ODM standards, collision probability, maneuver
+  planning, drag, sustainability). Cite the chunk id when you draw on it.
 - Finish a decision with submit_maneuver_card.
 
-STYLE: concise, operator-facing, plain English. Lead with the recommendation. Cite the specific numbers from the tools. Flag uncertainty honestly.
+STYLE: concise, operator-facing, plain English. Lead with the recommendation. Cite the specific numbers from the tools. When you draw on the knowledge base, cite the source chunk. Flag uncertainty honestly.
 """
 
 FEW_SHOT = [

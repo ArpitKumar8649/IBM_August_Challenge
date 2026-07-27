@@ -29,6 +29,7 @@ from engine.maneuvers import (
 from engine.covariance import collision_probability_both
 from engine.fuel_optimal import fuel_optimal_with_verification
 from engine.standards import generate_cdm
+from agent.rag import get_retriever
 from engine.models import (
     ManeuverConstraints,
     ObjectInfo,
@@ -389,6 +390,18 @@ class AgentTools:
             "cdm": cdm_text,
         }
 
+    def query_knowledge_base(self, query: str, k: int = 3) -> dict:
+        """Retrieve relevant space-domain knowledge for a question (RAG).
+
+        Searches the analyst's knowledge base (conjunction assessment, CDM/ODM
+        standards, collision probability, maneuver planning, atmospheric drag,
+        validation results, operator runbook, sustainability) and returns the
+        most relevant chunks with citations. Use this to ground answers in
+        domain expertise and cite sources.
+        """
+        retriever = get_retriever()
+        return retriever.retrieve_and_format(query, k=k)
+
     # -- dispatch ------------------------------------------------------------
 
     TOOL_NAMES = [
@@ -402,6 +415,7 @@ class AgentTools:
         "fuel_optimal_maneuver",
         "collision_probability_realistic",
         "generate_cdm_message",
+        "query_knowledge_base",
     ]
 
     def dispatch(self, tool_name: str, arguments: dict | None = None) -> dict:
@@ -561,6 +575,21 @@ TOOL_SCHEMAS = [
                     "event_id": {"type": "integer"},
                 },
                 "required": ["event_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_knowledge_base",
+            "description": "Search the analyst's space-domain knowledge base (conjunction assessment, CDM/ODM standards, collision probability, maneuver planning, drag, validation results, operator runbook, sustainability) and return the most relevant chunks with citations. Use this to ground your answers in domain expertise and cite sources.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "the question or topic to search for"},
+                    "k": {"type": "integer", "description": "number of chunks to retrieve (default 3)"},
+                },
+                "required": ["query"],
             },
         },
     },

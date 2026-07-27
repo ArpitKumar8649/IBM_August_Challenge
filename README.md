@@ -94,7 +94,8 @@ OrbitWarden is a web-based mission-ops decision-support tool. Give it a satellit
 - **RSW geometry classification** — in-track / radial / cross-track, with maneuverability awareness (debris and rocket bodies can't move — *you* must).
 - **Storm-aware re-screening** — NOAA SWPC + NASA DONKI feed a flag when geomagnetic activity inflates TLE uncertainty near a conjunction's TCA.
 - **Avoidance-maneuver search** — shoot-and-score over a grid of burns, using **numerical two-body propagation** (not linearized approximations), with rocket-equation propellant costing and three curated options (cheapest-safe / nominal / conservative).
-- **Granite judgment agent** — a 10-tool strict contract; the model's *only* way to touch numbers.
+- **Granite judgment agent** — an 11-tool strict contract; the model's *only* way to touch numbers.
+- **Retrieval-augmented analyst (RAG)** — a vector-database memory of space-domain knowledge (conjunction assessment, CDM/ODM standards, collision probability, maneuver planning, drag, validation, operator runbook, sustainability). The analyst answers with **grounded, cited expertise**, not generic prose — see [`docs/RAG_ANALYST.md`](docs/RAG_ANALYST.md).
 - **Output-validation layer** — every number the model writes in prose is checked against the engine's outputs; inventions are flagged. Maneuver cards are server-composed.
 - **Mission-control dashboard** — live conjunction board with ticking TCA countdowns, RSW geometry, maneuver options, and the analyst chat.
 - **Validated against ground truth** — replayed against CelesTrak SOCRATES and real Space Surveillance Network CDMs (see [Validation](#-validation--evidence)).
@@ -305,10 +306,14 @@ IBM_August_Challenge/
 │   ├── models.py               #   shared pydantic models
 │   └── cli.py                  #   one-command screening
 ├── agent/                      # AI judgment plane
-│   ├── tools.py                #   the 7-tool contract
+│   ├── tools.py                #   the 11-tool contract
 │   ├── prompts.py              #   system prompt + few-shot
 │   ├── session.py              #   Granite tool-calling loop (watsonx REST)
-│   └── validator.py            #   output-validation layer
+│   ├── validator.py            #   output-validation layer
+│   ├── knowledge.py            #   space-domain knowledge base (RAG)
+│   ├── embedder.py             #   watsonx embeddings + offline hashing fallback
+│   ├── vectorstore.py          #   cosine-similarity vector store (pgvector-ready)
+│   └── rag.py                  #   retrieval-augmented generation
 ├── api/                        # FastAPI layer (REST + SSE)
 ├── batch/                      # nightly screening orchestration
 ├── validation/                 # SOCRATES + CDM validation harnesses
