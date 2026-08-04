@@ -3,6 +3,7 @@ import type {
   SatelliteInfo,
   SpaceWeather,
   ManeuverOption,
+  BPlane,
   Transient,
   ExoplanetStats,
   Star,
@@ -16,7 +17,7 @@ import type {
   SpaceWeatherDetailed,
   SystemHealth,
 } from '../types'
-import { SAMPLE_EVENTS, SAMPLE_SATELLITE, SAMPLE_WEATHER, SAMPLE_MANEUVERS } from '../data/sample'
+import { SAMPLE_EVENTS, SAMPLE_SATELLITE, SAMPLE_WEATHER, SAMPLE_MANEUVERS, sampleBPlane } from '../data/sample'
 
 /**
  * API client with graceful fallback to the bundled sample dataset, so the UI is
@@ -68,6 +69,29 @@ export async function fetchManeuvers(
   return body && body.options.length
     ? { data: body.options, live: true }
     : { data: SAMPLE_MANEUVERS, live: false }
+}
+
+// ============================================================
+// B-plane — the canonical conjunction diagram (5.2)
+// ============================================================
+
+/**
+ * Fetch the B-plane diagram for an event.
+ *
+ * Falls back to a geometry computed from the sample event's own RSW miss, so the
+ * plot is never empty offline — and never shows numbers that contradict the event
+ * card beside it. `live` says which one the reader is looking at.
+ */
+export async function fetchBPlane(
+  event: ScoredConjunction,
+  realismFactor = 2,
+): Promise<{ data: BPlane; live: boolean }> {
+  const data = await fetchRaw<BPlane>(
+    `/api/events/${event.event_id}/bplane?realism_factor=${realismFactor}`,
+  )
+  return data?.available
+    ? { data, live: true }
+    : { data: sampleBPlane(event, realismFactor), live: false }
 }
 
 // ============================================================

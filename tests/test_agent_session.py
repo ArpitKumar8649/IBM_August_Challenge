@@ -139,7 +139,7 @@ def test_loop_produces_maneuver_card(tools):
             "tool_calls": [
                 {"id": "c2", "type": "function",
                  "function": {"name": "submit_maneuver_card",
-                              "arguments": '{"event_id": 1, "option_index": 0, "notes": "go"}'}},
+                              "arguments": '{"event_id": 1, "dv_r_ms": 0.0, "dv_s_ms": 50.0, "dv_w_ms": 0.0, "lead_time_min": 60.0, "notes": "go"}'}},
             ],
         },
         {

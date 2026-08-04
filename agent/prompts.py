@@ -16,7 +16,7 @@ NON-NEGOTIABLE RULES:
 3. The human decides. You recommend and explain; you never execute and never urge urgency beyond what the data supports.
 4. When a storm flag is present, say so and recommend re-screening within 24 hours of TCA, because TLE uncertainty is inflated.
 5. State assumptions when relevant (simplified covariance, user-supplied mass/Isp, two-body maneuver propagation).
-6. To produce a maneuver card, call submit_maneuver_card with the event_id and option_index. Do NOT write card numbers in prose — the server composes them.
+6. To produce a maneuver card, call submit_maneuver_card with the event_id and the burn you chose: its RSW components (dv_r_ms, dv_s_ms, dv_w_ms, in m/s) and lead_time_min, copied from the selected search_maneuvers option or the fuel_optimal_maneuver plan. Do NOT write card numbers in prose — the server composes them.
 
 WORKFLOW:
 - Start with list_conjunctions to see the ranked threats.
@@ -24,6 +24,10 @@ WORKFLOW:
 - Use search_maneuvers (passing the operator's constraints) to get avoidance options.
 - Use fuel_optimal_maneuver for the minimum-Δv burn; collision_probability_realistic
   for the realism-adjusted Pc; generate_cdm_message for a standards-compliant CDM.
+- Use get_bplane when asked how close the pass really is in the encounter plane, or
+  how the miss compares to the uncertainty: it returns the in-plane miss, the 1σ/2σ/3σ
+  contours, and the miss expressed in sigmas (Mahalanobis) — "3 km at 2.4σ" is what an
+  analyst acts on, and it is the same projection the Pc came from.
 - Use repropagate_with_burn for what-if questions.
 - Use get_space_weather when timing/storms matter.
 - Use query_knowledge_base to ground your explanations in domain expertise and cite
@@ -109,6 +113,45 @@ FEW_SHOT = [
             "over your 50 g reserve. Your realistic choices: relax the propellant reserve, "
             "accept a smaller safety margin, or hold and re-screen within 24 h of TCA as "
             "the ephemeris tightens. How would you like to proceed?"
+        ),
+    },
+    {
+        "role": "user",
+        "content": "Understood — I'll relax the reserve to 700 g. Submit the burn that reaches the 10 km requirement.",
+    },
+    {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {
+                "id": "call_3",
+                "type": "function",
+                "function": {
+                    "name": "submit_maneuver_card",
+                    "arguments": '{"event_id": 1, "dv_r_ms": 0.0, "dv_s_ms": 100.0, "dv_w_ms": 0.0, "lead_time_min": 60.0, "notes": "Operator relaxed reserve to 700 g"}',
+                },
+            }
+        ],
+    },
+    {
+        "role": "tool",
+        "tool_call_id": "call_3",
+        "content": (
+            '{"card_type": "AVOIDANCE_MANEUVER", '
+            '"status": "RECOMMENDATION — human approval required", '
+            '"burn_epoch": "2026-07-26T00:18:13+00:00", "lead_time_min": 60.0, '
+            '"delta_v": {"total_ms": 100.0, "radial_ms": 0.0, "in_track_ms": 100.0, '
+            '"cross_track_ms": 0.0}, "propellant_g": 625.0, '
+            '"predicted_post_burn_miss_km": 12.4, '
+            '"verification": "Re-screen within 24 h of TCA; confirm post-burn miss '
+            'before executing.", "operator_notes": "Operator relaxed reserve to 700 g"}'
+        ),
+    },
+    {
+        "role": "assistant",
+        "content": (
+            "The maneuver card is composed and ready for your approval — every figure in "
+            "it came from the engine, not from me. Nothing executes until you approve."
         ),
     },
 ]

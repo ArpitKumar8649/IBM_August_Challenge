@@ -1,4 +1,12 @@
-import type { ScoredConjunction, SatelliteInfo, SpaceWeather, ManeuverOption } from '../types'
+import type {
+  ScoredConjunction,
+  SatelliteInfo,
+  SpaceWeather,
+  ManeuverOption,
+  BPlane,
+  CovarianceEllipse,
+  SigmaContour,
+} from '../types'
 
 /**
  * Sample dataset derived from a real screening run (ISS vs. the active catalog).
@@ -84,18 +92,18 @@ export const SAMPLE_EVENTS: ScoredConjunction[] = [
 export const SAMPLE_MANEUVERS: ManeuverOption[] = [
   {
     kind: 'cheapest-safe', burn_epoch: '2026-07-26T00:18:13Z', lead_time_min: 60,
-    dv_total_ms: 5, dv_rsw_ms: { radial: 0, in_track: 5, cross_track: 0 },
-    propellant_g: 33.8, post_burn_miss_km: 410.6, satisfies_constraints: true,
+    dv_total_ms: 0.05, dv_rsw_ms: { radial: 0, in_track: 0.05, cross_track: 0 },
+    propellant_g: 0.34, post_burn_miss_km: 10.2, satisfies_constraints: true,
   },
   {
     kind: 'nominal', burn_epoch: '2026-07-25T22:18:13Z', lead_time_min: 180,
-    dv_total_ms: 10, dv_rsw_ms: { radial: 0, in_track: 10, cross_track: 0 },
-    propellant_g: 67.4, post_burn_miss_km: 749.2, satisfies_constraints: true,
+    dv_total_ms: 0.1, dv_rsw_ms: { radial: 0, in_track: 0.1, cross_track: 0 },
+    propellant_g: 0.68, post_burn_miss_km: 11.7, satisfies_constraints: true,
   },
   {
     kind: 'conservative', burn_epoch: '2026-07-25T19:18:13Z', lead_time_min: 360,
-    dv_total_ms: 20, dv_rsw_ms: { radial: 0, in_track: 20, cross_track: 0 },
-    propellant_g: 134.2, post_burn_miss_km: 1480.5, satisfies_constraints: true,
+    dv_total_ms: 0.2, dv_rsw_ms: { radial: 0, in_track: 0.2, cross_track: 0 },
+    propellant_g: 1.36, post_burn_miss_km: 17.2, satisfies_constraints: true,
   },
 ]
 
@@ -107,4 +115,92 @@ export const CDM_STATS = {
   median_miss_ratio: 1.07,
   median_tca_err_s: 0.09,
   max_tca_err_s: 3.1,
+}
+
+// ============================================================
+// B-plane fallback (5.2)
+// ============================================================
+
+// The engine's documented fixed 1σ combined covariance in RSW (km) — engine/pc.py.
+// The in-track sigma (1.0 km) is absent because the assumed in-track encounter
+// projects that axis out of the plane entirely.
+const SIGMA_RADIAL_KM = 0.5
+const SIGMA_CROSSTRACK_KM = 0.5
+const DEFAULT_HBR_KM = 0.005
+
+const scaleContours = (e: CovarianceEllipse): SigmaContour[] =>
+  [1, 2, 3].map((level) => ({
+    level,
+    semi_major_km: e.semi_major_km * level,
+    semi_minor_km: e.semi_minor_km * level,
+    rotation_deg: e.rotation_deg,
+  }))
+
+/**
+ * Offline B-plane geometry for a sample event, mirroring engine/viz/bplane.py.
+ *
+ * The sample events store only the miss magnitude per RSW axis and a relative-speed
+ * scalar, so the true encounter plane is not recoverable. This assumes the common
+ * in-track-dominated encounter: the B-plane is then the (radial, cross-track) plane,
+ * the in-track miss projects out, and the ellipse axes are the radial and
+ * cross-track sigmas directly. Numbers are consistent with the event card beside
+ * it, and the UI labels the panel SAMPLE so the reader knows which they see.
+ */
+export function sampleBPlane(event: ScoredConjunction, realismFactor = 2): BPlane {
+  const m = event.miss_rsw_km ?? { radial: event.miss_km, in_track: 0, cross_track: 0 }
+  // Project out the in-track component (it lies along the assumed relative velocity).
+  const xi = m.radial
+  const zeta = m.cross_track
+  const missNorm = Math.hypot(xi, zeta)
+
+  // Radial sigma < cross-track sigma would flip the axes; they are equal here, so
+  // the ellipse is a circle of radius 0.5 km at 0°.
+  const ellipse: CovarianceEllipse = {
+    semi_major_km: Math.max(SIGMA_RADIAL_KM, SIGMA_CROSSTRACK_KM),
+    semi_minor_km: Math.min(SIGMA_RADIAL_KM, SIGMA_CROSSTRACK_KM),
+    rotation_deg: 0,
+  }
+
+  const mahalanobis = Math.hypot(xi / SIGMA_RADIAL_KM, zeta / SIGMA_CROSSTRACK_KM)
+  const pcFrom = (k: number) => {
+    const det = k * SIGMA_RADIAL_KM ** 2 * (k * SIGMA_CROSSTRACK_KM ** 2)
+    const quad = (mahalanobis * mahalanobis) / k
+    return Math.min((DEFAULT_HBR_KM ** 2 / (2 * Math.sqrt(det))) * Math.exp(-0.5 * quad), 1)
+  }
+
+  const realismEllipse: CovarianceEllipse = {
+    semi_major_km: ellipse.semi_major_km * Math.sqrt(realismFactor),
+    semi_minor_km: ellipse.semi_minor_km * Math.sqrt(realismFactor),
+    rotation_deg: ellipse.rotation_deg,
+  }
+
+  return {
+    available: true,
+    event_id: event.event_id,
+    secondary_name: event.secondary_name,
+    secondary_norad: event.secondary_norad,
+    tca: event.tca,
+    miss_bp: { xi, zeta },
+    miss_norm_km: missNorm,
+    miss_3d_km: event.miss_km,
+    vrel_kms: event.vrel_kms,
+    hbr_km: DEFAULT_HBR_KM,
+    miss_inside_hbr: missNorm < DEFAULT_HBR_KM,
+    ellipse,
+    sigma_levels: scaleContours(ellipse),
+    mahalanobis_sigma: mahalanobis,
+    sigma_contour_containing_miss: [1, 2, 3].find((n) => mahalanobis <= n) ?? null,
+    axes_rsw: { xi: [1, 0, 0], zeta: [0, 0, 1] },
+    pc: pcFrom(1),
+    realism: {
+      factor: realismFactor,
+      ellipse: realismEllipse,
+      sigma_levels: scaleContours(realismEllipse),
+      pc: pcFrom(realismFactor),
+      mahalanobis_sigma: mahalanobis / Math.sqrt(realismFactor),
+    },
+    note:
+      'Sample geometry — assumes an in-track-dominated encounter. Start the API for the ' +
+      'true encounter plane derived from the full relative-velocity vector.',
+  }
 }

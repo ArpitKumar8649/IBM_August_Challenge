@@ -8,6 +8,7 @@ import EarthObservationPanel from '../panels/EarthObservationPanel'
 import DiscoveryPanel from '../panels/DiscoveryPanel'
 import SolarSystemPanel from '../panels/SolarSystemPanel'
 import SystemHealthPanel from '../panels/SystemHealthPanel'
+import BPlanePlot from '../viz/BPlanePlot'
 import '../styles/dashboard.css'
 
 interface ChatMsg {
@@ -247,15 +248,17 @@ export default function Dashboard() {
                     </div>
                   )}
 
+                  <BPlanePlot event={selected} />
+
                   <div className="maneuvers">
                     <span className="eyebrow" style={{ fontSize: '0.6rem' }}>avoidance options</span>
                     <div className="man-grid">
                       {maneuvers.map((m) => (
                         <div key={m.kind} className="man-card">
                           <span className={`man-kind ${m.kind}`}>{m.kind}</span>
-                          <div className="man-v mono">{m.dv_total_ms.toFixed(0)} <small>m/s</small></div>
-                          <div className="man-row mono">→ {m.post_burn_miss_km.toFixed(0)} km miss</div>
-                          <div className="man-row mono">{m.propellant_g.toFixed(0)} g propellant</div>
+                          <div className="man-v mono">{m.dv_total_ms < 1 ? m.dv_total_ms.toFixed(3) : m.dv_total_ms.toFixed(1)} <small>m/s</small></div>
+                          <div className="man-row mono">→ {m.post_burn_miss_km.toFixed(1)} km miss</div>
+                          <div className="man-row mono">{m.propellant_g < 1 ? m.propellant_g.toFixed(2) : m.propellant_g.toFixed(0)} g propellant</div>
                           <div className="man-row mono">{m.lead_time_min.toFixed(0)} min before TCA</div>
                         </div>
                       ))}
@@ -271,7 +274,7 @@ export default function Dashboard() {
               <section className="analyst panel">
                 <div className="analyst-head">
                   <span className="chat-dot" /> OrbitWarden Analyst
-                  <span className="chip good" style={{ marginLeft: 'auto' }}>Granite · 29 tools · validated</span>
+                  <span className="chip good" style={{ marginLeft: 'auto' }}>Granite · 30 tools · validated</span>
                 </div>
                 <div className="analyst-body">
                   {chat.map((m, i) => (

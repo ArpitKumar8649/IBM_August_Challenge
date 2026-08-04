@@ -99,6 +99,59 @@ def test_space_weather(client):
     assert "available" in r.json()
 
 
+def test_bplane(client):
+    r = client.get("/api/events/1/bplane")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["available"] is True
+    # Identity + context the plot titles itself with.
+    assert body["secondary_norad"] == 99998
+    assert body["tca"].endswith("Z")
+    assert set(body["miss_bp"]) == {"xi", "zeta"}
+    # The in-plane miss is a projection of the 3-D miss, so it cannot exceed it.
+    # (miss_3d_km is the value stored at screening time; miss_norm_km comes from a
+    # re-refinement of the same TCA, so they agree only to ~1e-9 km.)
+    assert 0.0 < body["miss_norm_km"] <= body["miss_3d_km"] * (1 + 1e-6)
+    assert body["miss_inside_hbr"] is False
+    assert body["ellipse"]["semi_major_km"] >= body["ellipse"]["semi_minor_km"]
+    assert -90.0 <= body["ellipse"]["rotation_deg"] < 90.0
+    # Three contours, scaling linearly off the 1σ ellipse.
+    assert [lvl["level"] for lvl in body["sigma_levels"]] == [1, 2, 3]
+    assert body["sigma_levels"][2]["semi_major_km"] == pytest.approx(
+        body["ellipse"]["semi_major_km"] * 3
+    )
+    assert body["mahalanobis_sigma"] > 0
+    assert body["realism"]["factor"] == 2.0
+    assert body["realism"]["pc"] >= body["pc"]
+
+
+def test_bplane_realism_factor_is_tunable(client):
+    """A larger realism factor inflates the covariance, so the miss sits at fewer
+    sigmas and Pc rises — the query parameter must actually reach the engine."""
+    low = client.get("/api/events/1/bplane?realism_factor=1.5").json()
+    high = client.get("/api/events/1/bplane?realism_factor=4.0").json()
+    assert low["realism"]["factor"] == 1.5
+    assert high["realism"]["factor"] == 4.0
+    assert high["realism"]["mahalanobis_sigma"] < low["realism"]["mahalanobis_sigma"]
+    assert high["realism"]["pc"] > low["realism"]["pc"]
+    # The analytic geometry is unaffected by the realism knob.
+    assert high["pc"] == pytest.approx(low["pc"])
+
+
+def test_bplane_pc_agrees_with_collision_probability_endpoint(client):
+    """The diagram and the Pc endpoint must report the same numbers — the plot
+    exists to explain that Pc, so a disagreement would be a lie."""
+    bp = client.get("/api/events/1/bplane").json()
+    pc = client.get("/api/events/1/collision-probability?realism_factor=2.0").json()
+    assert bp["pc"] == pytest.approx(pc["pc_analytic"], rel=1e-9)
+    assert bp["realism"]["pc"] == pytest.approx(pc["pc_realistic"], rel=1e-9)
+
+
+def test_bplane_not_found(client):
+    r = client.get("/api/events/999/bplane")
+    assert r.status_code == 404
+
+
 def test_chat_with_scripted_model(client, monkeypatch):
     """POST /api/chat runs the agent; inject a scripted model to stay offline."""
     from agent import session as session_mod

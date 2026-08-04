@@ -37,6 +37,62 @@ export interface SatelliteInfo {
   object_type: string
 }
 
+// ============================================================
+// B-plane — the canonical conjunction-assessment diagram (5.2)
+// ============================================================
+
+/** One covariance contour: the 1σ ellipse scaled by `level`. */
+export interface SigmaContour {
+  level: number
+  semi_major_km: number
+  semi_minor_km: number
+  rotation_deg: number
+}
+
+/** The 1σ covariance ellipse in the B-plane. Orientation is mod 180°, in [-90, 90). */
+export interface CovarianceEllipse {
+  semi_major_km: number
+  semi_minor_km: number
+  rotation_deg: number
+}
+
+/** The same geometry under the covariance-realism factor (Foster/Hall). */
+export interface BPlaneRealism {
+  factor: number
+  ellipse: CovarianceEllipse
+  sigma_levels: SigmaContour[]
+  pc: number
+  mahalanobis_sigma: number
+}
+
+export interface BPlane {
+  available: boolean
+  event_id: number
+  secondary_name: string
+  secondary_norad: number
+  tca: string
+  /** The miss point projected onto the encounter plane (km). */
+  miss_bp: { xi: number; zeta: number }
+  /** In-plane miss distance — always <= the 3-D miss, since a component is projected out. */
+  miss_norm_km: number
+  miss_3d_km: number
+  vrel_kms: number
+  /** Hard-body radius: the combined collision cross-section (km). */
+  hbr_km: number
+  miss_inside_hbr: boolean
+  ellipse: CovarianceEllipse
+  sigma_levels: SigmaContour[]
+  /** The miss expressed in sigmas of the uncertainty distribution. */
+  mahalanobis_sigma: number
+  /** Smallest contour containing the miss, or null beyond 3σ. */
+  sigma_contour_containing_miss: number | null
+  /** The ξ/ζ axes in RSW components, so the axes can be labelled honestly. */
+  axes_rsw: { xi: number[]; zeta: number[] }
+  pc: number
+  realism: BPlaneRealism
+  note: string
+}
+
 export interface SpaceWeather {
   available: boolean
   max_kp_3day: number

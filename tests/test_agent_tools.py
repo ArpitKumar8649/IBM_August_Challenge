@@ -141,6 +141,43 @@ def test_collision_probability_realistic_tool(tools):
     assert result["realism_factor"] == 2.0
     assert 0.0 <= result["pc_analytic"] <= 1.0
     assert 0.0 <= result["pc_realistic"] <= 1.0
+    # Inflating the covariance can only raise the probability of a miss this far out.
+    assert result["pc_realistic"] >= result["pc_analytic"]
+
+
+def test_get_bplane_tool(tools):
+    """The B-plane tool returns the full diagram payload for a real event."""
+    result = tools.get_bplane(1)
+    assert result["available"] is True
+    assert result["event_id"] == 1
+    assert result["secondary_norad"] == 99998
+    assert set(result["miss_bp"]) == {"xi", "zeta"}
+    assert result["miss_norm_km"] > 0
+    assert result["hbr_km"] > 0
+    assert result["ellipse"]["semi_major_km"] >= result["ellipse"]["semi_minor_km"]
+    assert [lvl["level"] for lvl in result["sigma_levels"]] == [1, 2, 3]
+    assert result["mahalanobis_sigma"] > 0
+    assert 0.0 <= result["pc"] <= 1.0
+    assert result["realism"]["factor"] == 2.0
+
+
+def test_get_bplane_agrees_with_collision_probability_tool(tools):
+    """The diagram exists to explain Pc, so both tools must report one number.
+
+    This is the regression guard for the encounter-plane bug: deriving the
+    relative velocity as a full vector (not an assumed in-track magnitude) is what
+    makes these agree on a radial-dominated conjunction.
+    """
+    bp = tools.get_bplane(1, realism_factor=2.0)
+    pc = tools.collision_probability_realistic(1, realism_factor=2.0)
+    assert bp["pc"] == pytest.approx(pc["pc_analytic"], rel=1e-9)
+    assert bp["realism"]["pc"] == pytest.approx(pc["pc_realistic"], rel=1e-9)
+
+
+def test_get_bplane_unknown_event(tools):
+    """An unknown event id raises, so the API layer can turn it into a 404."""
+    with pytest.raises(ValueError):
+        tools.get_bplane(999)
 
 
 def test_generate_cdm_message_tool(tools):
@@ -160,6 +197,8 @@ def test_dispatch_new_tools(tools):
     assert "pc_realistic" in r2
     r3 = tools.dispatch("generate_cdm_message", {"event_id": 1})
     assert "cdm" in r3
+    r4 = tools.dispatch("get_bplane", {"event_id": 1})
+    assert r4["available"] is True and "sigma_levels" in r4
 
 
 def test_query_knowledge_base_tool(tools):

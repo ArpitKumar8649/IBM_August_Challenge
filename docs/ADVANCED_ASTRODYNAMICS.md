@@ -22,7 +22,7 @@ spacecraft:
 | Atmospheric density & drag | `engine/atmosphere.py` | NRLMSISE-00 density, space-weather-driven drag |
 | Precision propagation | `engine/precision.py` | Numerical propagation with J2, drag, SRP |
 | Realistic collision probability | `engine/covariance.py` | General 2-D Pc + covariance realism factor |
-| Fuel-optimal maneuvers | `engine/fuel_optimal.py` | Minimum-Δv burn for a target miss (CW-optimized, numerically verified) |
+| Fuel-optimal maneuvers | `engine/fuel_optimal.py` | Minimum-Δv burn for a target miss (exact closed-form CW plan, numerically verified and re-screened) |
 | CDM/ODM standards | `engine/standards.py` | CCSDS-standard Conjunction & Orbit Data Messages |
 
 ---
@@ -162,18 +162,45 @@ Using the **Clohessy-Wiltshire (Hill)** state-transition matrix, the post-burn
 miss is a linear function of Δv:
 
 ```
-m_new = m + Φ_rv · Δv
+m_new = m − Φ_rv · Δv
 ```
 
-where Φ_rv is the 3×3 velocity-to-position block of the CW STM. The **optimal
-burn direction** is the one that maximizes miss-per-Δv — the gradient direction
-`Φ_rvᵀ · m̂`. The **optimal magnitude** follows from the target miss via a bounded
-scalar optimization. The result is then **verified** with the high-fidelity
-numerical propagator (J2 + drag).
+where Φ_rv is the 3×3 velocity-to-position block of the CW STM. The minus sign
+is load-bearing: the miss vector is secondary-minus-primary and the burn is
+applied to the *primary*, so moving the primary by Φ_rv·Δv changes the relative
+position by −Φ_rv·Δv. (An earlier version of this module used a plus sign,
+which predicts the opposite of what a burn does and recommended closing burns —
+a 162-case sweep against numerical propagation measured up to 142% error for
+the plus-sign model vs 0.013% for the minus sign.)
+
+The second pinned convention is the **frame epoch**: Δv is expressed in the
+primary's RSW frame **at the burn epoch** (TCA − lead time). The RSW frame
+rotates with the orbit (~4°/min in LEO — ~230° over a one-hour lead), so the
+same Δv triple applied in a frame anchored at another epoch lands the spacecraft
+somewhere else entirely. The verification step derives the frame internally at
+the burn epoch; callers no longer supply one.
+
+### The exact optimum
+Minimizing |Δv| subject to |m − Φ_rv·Δv| = T is solved in **closed form**: an
+SVD of the planning map A = UΣVᵀ reduces the constraint to a single secular
+equation in one Lagrange multiplier, which is monotone and solved by bisection
+— the global optimum, with no gradient heuristic (the earlier heuristic was up
+to 61% off the exact optimum). Eccentric orbits (e ≥ 0.2) are planned on a
+finite-difference two-body map instead of the CW map.
+
+### Honest verification
+A plan on the linear map is not protection. The verification propagates
+**both objects** numerically (J2 + drag by default), reports the separation at
+the original TCA, and **re-screens the true post-burn closest approach** around
+it — because what protects the spacecraft is the closest approach *after* the
+burn, not just the separation at the original TCA instant. If the closest
+approach falls short of the target, the burn is rescaled with a secant step on
+the verified metric and re-verified (at most three verifications).
 
 ### Verified behavior
-- The optimal direction is a unit vector that *increases* the miss.
-- The fuel-optimal burn achieves the target miss.
+- The CW planning map matches numerical truth to ~0.01% (162-case sweep); the
+  secular solver matches a brute-force minimum-|Δv| search to 0.05%.
+- The fuel-optimal burn achieves the target miss under re-screening.
 - **It beats a naive in-track-only burn** — uses less Δv for the same target
   (it picks the best direction, not just the obvious one).
 - No burn is computed if the current miss already exceeds the target.

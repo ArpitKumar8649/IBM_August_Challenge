@@ -12,7 +12,7 @@ Built for the **IBM AI Builders Challenge — August 2026 · Advance Space Explo
 [![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white)](https://react.dev)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![IBM Granite](https://img.shields.io/badge/IBM%20Granite-4-0f62fe?logo=ibm&logoColor=white)](https://github.com/ibm-granite-community)
-[![Tests](https://img.shields.io/badge/tests-113%20passing-4cd6a4)](#validation--evidence)
+[![Tests](https://img.shields.io/badge/tests-374%20passing-4cd6a4)](#validation--evidence)
 [![License](https://img.shields.io/badge/license-MIT-6c7896)](LICENSE)
 
 </div>
@@ -94,10 +94,10 @@ OrbitWarden is a web-based mission-ops decision-support tool. Give it a satellit
 - **RSW geometry classification** — in-track / radial / cross-track, with maneuverability awareness (debris and rocket bodies can't move — *you* must).
 - **Storm-aware re-screening** — NOAA SWPC + NASA DONKI feed a flag when geomagnetic activity inflates TLE uncertainty near a conjunction's TCA.
 - **Avoidance-maneuver search** — shoot-and-score over a grid of burns, using **numerical two-body propagation** (not linearized approximations), with rocket-equation propellant costing and three curated options (cheapest-safe / nominal / conservative).
-- **Granite judgment agent** — a 29-tool strict contract; the model's *only* way to touch numbers.
+- **Granite judgment agent** — a 30-tool strict contract; the model's *only* way to touch numbers.
 - **Retrieval-augmented analyst (RAG)** — a vector-database memory of space-domain knowledge (conjunction assessment, CDM/ODM standards, collision probability, maneuver planning, drag, validation, operator runbook, sustainability). The analyst answers with **grounded, cited expertise**, not generic prose — see [`docs/RAG_ANALYST.md`](docs/RAG_ANALYST.md).
 - **Output-validation layer** — every number the model writes in prose is checked against the engine's outputs; inventions are flagged. Maneuver cards are server-composed.
-- **Mission-control dashboard** — live conjunction board with ticking TCA countdowns, RSW geometry, maneuver options, and the analyst chat.
+- **Mission-control dashboard** — live conjunction board with ticking TCA countdowns, RSW geometry, the **B-plane encounter diagram**, maneuver options, and the analyst chat.
 - **Validated against ground truth** — replayed against CelesTrak SOCRATES and real Space Surveillance Network CDMs (see [Validation](#-validation--evidence)).
 
 ### 🔬 Advanced astrodynamics (NASA-level physics)
@@ -107,8 +107,9 @@ Beyond SGP4 screening, OrbitWarden adds high-fidelity physics where it matters �
 - **NRLMSISE-00 atmospheric drag** (`engine/atmosphere.py`) — NASA's empirical thermosphere model (via `pymsis`), space-weather-driven; makes the storm flag *quantitative* (density inflates ~1.7× during a geomagnetic storm).
 - **Precision numerical propagation** (`engine/precision.py`) — J2 geopotential + drag + solar radiation pressure (scipy DOP853, 1e-11 tolerances). **Two-tier fidelity:** SGP4 screens the many; numerical propagation confirms the few that matter — exactly how operational centers work.
 - **Realistic collision probability** (`engine/covariance.py`) — the *general* 2-D Alfriend–Foster formula for arbitrary (correlated) covariance, plus a documented **covariance realism factor** (Foster/Hall). Correctly captures the non-monotonic Pc-vs-covariance behavior for off-center misses.
-- **Fuel-optimal maneuvers** (`engine/fuel_optimal.py`) — the **minimum-Δv** burn for a target miss, optimized via the Clohessy-Wiltshire state-transition matrix and verified numerically. Beats a naive in-track burn.
+- **Fuel-optimal maneuvers** (`engine/fuel_optimal.py`) — the **minimum-Δv** burn for a target miss, solved in closed form on the Clohessy-Wiltshire map (SVD + secular equation), then verified by numerically propagating both objects and re-screening the post-burn closest approach. Beats a naive in-track burn.
 - **CCSDS CDM/ODM standards** (`engine/standards.py`) — generates standards-compliant Conjunction Data Messages (CCSDS 508.0-B-1) and Orbit Mean-Elements Messages (CCSDS 502.0-B-2) — interoperable with operational SSA tooling.
+- **The B-plane encounter diagram** (`engine/viz/bplane.py` → `web/src/viz/BPlanePlot.tsx`) — the canonical conjunction-assessment figure: the miss point, the hard-body-radius circle, and the 1σ/2σ/3σ covariance contours in the encounter plane, with the k=2 realism contour overlaid. The projection is *the same computation the Pc came from* — Pc is recomputed from the projected quantities and pinned to `engine.pc` at rel=1e-12, so the picture and the probability beside it cannot disagree. Fully keyboard-navigable, with a table view of every quantity.
 
 ### 🌍 Live NASA / Space-Track / Open Notify data (Phase A)
 
@@ -161,13 +162,13 @@ Extends OrbitWarden from *protecting satellites* to *discovering new things* —
 - **Gaia DR3 stars** (TAP cone search) — stars in a field, brightest-first — "what stars are in this field?"
 - A **robust TAP response normalizer** that handles all common TAP JSON formats (the Exoplanet Archive's list-of-dicts *and* Gaia's positional-data serialization).
 
-Agent contract now **29 tools** (`get_recent_transients`, `get_exoplanet_stats`, `get_stars_near`). The **data-integration plan (Phases A–E) is complete** — OrbitWarden ingests live data from NASA, ESA, NOAA, the Space Surveillance Network, ZTF, the Exoplanet Archive, and Gaia.
+Agent contract at the end of Phase E: **29 tools** (`get_recent_transients`, `get_exoplanet_stats`, `get_stars_near`). The **data-integration plan (Phases A–E) is complete** — OrbitWarden ingests live data from NASA, ESA, NOAA, the Space Surveillance Network, ZTF, the Exoplanet Archive, and Gaia.
 
 ### 🛰️ A real, operable platform (Phase F)
 
 OrbitWarden is a **deployed service**, not a one-off script — see [`docs/PHASE_F_PLATFORM.md`](docs/PHASE_F_PLATFORM.md) and the [operations runbook](docs/OPERATIONS.md):
 
-- **Full API surface** — all 29 tools exposed as REST endpoints (31 routes).
+- **Full API surface** — all 30 tools exposed as REST endpoints (33 routes).
 - **Space-situation dashboard** — a 6-panel frontend: Mission Control, Space Weather, Earth Observation (ground-track map + Sentinel-2 imagery + NEO watch), Discovery (transients + exoplanets + Gaia), Solar System (planet positions + live ISS), and System Health.
 - **Operational health monitoring** — `/api/health/full` reports database + every data source's freshness (ok / stale / unknown) and an overall status.
 - **Scheduled batch service** — the screening runs on a schedule and survives failures (never crashes unattended).
@@ -195,7 +196,7 @@ OrbitWarden is three planes with a hard separation of concerns, plus a trust lay
    │   AI JUDGMENT PLANE        │         │   DETERMINISTIC PHYSICS PLANE    │
    │   (IBM Granite on watsonx) │  tools  │   (Python astrodynamics engine)  │
    │                            │────────▶│                                  │
-   │  · 29-tool strict contract │         │  · SGP4 propagation (<1mm)       │
+   │  · 30-tool strict contract │         │  · SGP4 propagation (<1mm)       │
    │  · triage & rationale      │         │  · band filter + coarse scan     │
    │  · maneuver selection      │         │  · golden-section TCA refine     │
    │  · what-if reasoning       │         │  · Alfriend–Foster Pc (B-plane)  │
@@ -214,7 +215,7 @@ OrbitWarden is three planes with a hard separation of concerns, plus a trust lay
 
 ### The AI approach, in detail
 
-**1. The model never computes.** The Granite agent is given seven tools (`list_conjunctions`, `get_event_details`, `search_maneuvers`, `repropagate_with_burn`, `get_space_weather`, `get_satellite_info`, `submit_maneuver_card`). These are its *only* way to touch numbers. It does judgment — triage, selection, explanation, what-ifs — and composes prose. It never propagates an orbit, computes a probability, or designs a burn.
+**1. The model never computes.** The Granite agent works through a strict **30-tool contract** — from the operational core (`list_conjunctions`, `get_event_details`, `search_maneuvers`, `fuel_optimal_maneuver`, `repropagate_with_burn`, `submit_maneuver_card`) to live-data, knowledge-base, and visualization tools. These are its *only* way to touch numbers. It does judgment — triage, selection, explanation, what-ifs — and composes prose. It never propagates an orbit, computes a probability, or designs a burn.
 
 **2. The card is server-composed.** When the agent decides on a maneuver, it calls `submit_maneuver_card` with the *burn parameters it selected*. The **server** computes the post-burn miss distance and propellant from the engine and assembles the card. The model supplies prose; the engine supplies figures. The card's numbers are authoritative regardless of what the model says.
 
@@ -344,7 +345,7 @@ Replaying **15 real conjunctions** that the operational Space Surveillance Netwo
 
 ### Test suite
 
-**113 tests passing** across the engine, agent, validator, API, and integration (golden-path) tests. CI runs `pytest` on every push.
+**374 tests passing** across the engine, agent, validator, API, and integration (golden-path) tests. CI runs `pytest` on every push.
 
 ---
 
@@ -382,9 +383,11 @@ IBM_August_Challenge/
 │   ├── maneuvers.py            #   numerical shoot-and-score maneuver search
 │   ├── storage.py              #   SQLite persistence (Postgres-ready schema)
 │   ├── models.py               #   shared pydantic models
+│   ├── viz/                    #   figure-backing projections
+│   │   └── bplane.py           #     encounter-plane projection (miss, σ contours, Pc)
 │   └── cli.py                  #   one-command screening
 ├── agent/                      # AI judgment plane
-│   ├── tools.py                #   the 29-tool contract
+│   ├── tools.py                #   the 30-tool contract
 │   ├── prompts.py              #   system prompt + few-shot
 │   ├── session.py              #   Granite tool-calling loop (watsonx REST)
 │   ├── validator.py            #   output-validation layer
@@ -393,7 +396,7 @@ IBM_August_Challenge/
 │   ├── vectorstore.py          #   cosine-similarity vector store (pgvector-ready)
 │   └── rag.py                  #   retrieval-augmented generation
 ├── api/                        # FastAPI layer (REST + SSE)
-│   ├── main.py                 #   all 29 tools as REST endpoints (31 routes)
+│   ├── main.py                 #   all 30 tools as REST endpoints (33 routes)
 │   └── health.py               #   operational health monitoring (per-source)
 ├── batch/                      # scheduled screening service (survives failures)
 ├── validation/                 # SOCRATES + CDM validation harnesses
@@ -402,9 +405,10 @@ IBM_August_Challenge/
 │       ├── pages/              #   Landing + Dashboard (tabbed platform)
 │       ├── panels/             #   Space Weather, Earth Obs, Discovery, Solar System, Health
 │       ├── components/         #   OrbitScene, charts, clocks, reveals
+│       ├── viz/                #   BPlanePlot — the encounter-plane diagram
 │       ├── lib/                #   API client (with sample fallback)
 │       └── styles/             #   design system
-├── tests/                      # 349 tests
+├── tests/                      # 374 tests
 ├── docs/                       # results, reports, guides, operations runbook
 └── .github/workflows/ci.yml    # CI
 ```
@@ -416,12 +420,36 @@ IBM_August_Challenge/
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/health` | Service status + primary satellite |
+| `GET` | `/api/health/full` | Operational health: database + per-source freshness |
 | `GET` | `/api/satellite` | Primary satellite info |
 | `GET` | `/api/satellites/{norad_id}` | Catalog object info |
 | `GET` | `/api/events?limit=N` | Ranked conjunctions |
 | `GET` | `/api/events/{id}` | Event detail (RSW geometry, Pc, risk) |
-| `GET` | `/api/events/{id}/maneuvers` | Avoidance-maneuver options |
+| `GET` | `/api/events/{id}/bplane?realism_factor=k` | Encounter-plane projection: miss (ξ, ζ), 1σ/2σ/3σ ellipse parameters, HBR, Pc — the B-plane diagram's data |
+| `GET` | `/api/events/{id}/maneuvers?fuel_margin_g=&min_post_burn_miss_km=` | Avoidance-maneuver options under operator constraints |
+| `GET` | `/api/events/{id}/fuel-optimal?target_miss_km=&lead_time_min=` | Minimum-Δv burn (closed-form CW plan, numerically verified and re-screened) |
+| `GET` | `/api/events/{id}/collision-probability?realism_factor=k` | Analytic + realism-adjusted collision probability |
+| `GET` | `/api/events/{id}/drag-uncertainty` | Storm-driven drag-uncertainty band on the predicted miss |
+| `GET` | `/api/events/{id}/cdm` | CCSDS 508.0 Conjunction Data Message for the event |
 | `GET` | `/api/space-weather` | Geomagnetic conditions |
+| `GET` | `/api/space-weather/detailed` | Multi-signal storm-risk composite + active drivers |
+| `GET` | `/api/space-weather/alerts?days=N` | DONKI notifications with causal chains |
+| `GET` | `/api/ground-track?norad_id=&minutes=` | Sub-satellite ground track + bounding box |
+| `GET` | `/api/imagery?norad_id=&collection=&max_cloud=` | Latest Sentinel-2/Sentinel-1/Landsat scene under the satellite |
+| `GET` | `/api/disaster?west=&south=&east=&north=` | Copernicus burnt-area / disaster data for a region |
+| `GET` | `/api/planet/{body}?days=N` | JPL Horizons geocentric position for a Solar-System body |
+| `GET` | `/api/transients?limit=N` | Recent ZTF astronomical transients (via ALeRCE) |
+| `GET` | `/api/exoplanets?since_year=&limit=` | NASA Exoplanet Archive stats + recent discoveries |
+| `GET` | `/api/stars?ra=&dec=&radius_arcmin=` | Gaia DR3 stars in a field, brightest-first |
+| `GET` | `/api/neo?days=N` | NASA NEO Feed close approaches |
+| `GET` | `/api/earth-image` | NASA EPIC full-disc Earth imagery |
+| `GET` | `/api/apod` | NASA Astronomy Picture of the Day |
+| `GET` | `/api/iss` | Live ISS position (SGP4 fallback) |
+| `GET` | `/api/astronauts` | Humans currently in space |
+| `GET` | `/api/catalog-stats?top_n=` | Space-Track boxscore: who owns orbit |
+| `GET` | `/api/reentries?limit=N` | Predicted reentries (Space-Track decay) |
+| `GET` | `/api/literature?query=&rows=` | NASA ADS literature search |
+| `GET` | `/api/knowledge?query=&k=` | RAG knowledge-base retrieval (cited chunks) |
 | `POST` | `/api/chat` | Analyst conversation (validated) |
 | `GET` | `/api/chat/events?message=…` | Analyst reasoning stream (SSE) |
 
@@ -444,7 +472,6 @@ IBM_August_Challenge/
 
 ## 🗺️ Roadmap
 
-- [ ] Graded storm-uncertainty band (beyond the binary flag)
 - [ ] Multi-turn analyst memory across sessions
 - [ ] pgvector similar-encounter retrieval ("what did we recommend for a geometry like this?")
 - [ ] Design-partner trial with a university CubeSat team

@@ -8,6 +8,7 @@ The API surfaces all 29 agent tools as REST endpoints, organized by capability:
   Advanced astrodynamics:
     GET  /api/events/{id}/fuel-optimal · /api/events/{id}/collision-probability
     GET  /api/events/{id}/cdm · /api/events/{id}/drag-uncertainty
+    GET  /api/events/{id}/bplane
   Space weather (Phase B):
     GET  /api/space-weather · /api/space-weather/detailed · /api/space-weather/alerts
   Earth observation (Phase C):
@@ -239,6 +240,13 @@ def create_app(ctx: ToolContext, client: WatsonxClient | None = None) -> FastAPI
     def collision_probability(event_id: int, realism_factor: float = 2.0):
         try:
             return tools.collision_probability_realistic(event_id, realism_factor)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+
+    @app.get("/api/events/{event_id}/bplane")
+    def bplane(event_id: int, realism_factor: float = 2.0):
+        try:
+            return tools.get_bplane(event_id, realism_factor)
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc))
 

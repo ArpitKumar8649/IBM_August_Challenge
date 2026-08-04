@@ -22,6 +22,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 from engine.atmosphere import DEFAULT_AP, DEFAULT_F107, DEFAULT_F107A, drag_acceleration_from_alt
+from engine.frames import rsw_rotation
 
 # WGS-84 / EGM96 constants
 MU_EARTH = 398600.4418  # km³/s²
@@ -105,6 +106,73 @@ def srp_acceleration(
     return -a_mag_kms2 * sun_hat
 
 
+def _build_rhs(
+    start_time: datetime,
+    include_j2: bool = True,
+    include_j3: bool = False,
+    include_drag: bool = True,
+    include_srp: bool = False,
+    mass_kg: float = 4.0,
+    area_m2: float = 0.04,
+    cd: float = 2.2,
+    cr: float = 1.3,
+    f107: float = DEFAULT_F107,
+    f107a: float = DEFAULT_F107A,
+    ap: float = DEFAULT_AP,
+    sun_dir: np.ndarray | None = None,
+    srp_eclipse: bool = True,
+):
+    """Assemble the perturbed equations of motion, resolving the Sun once.
+
+    Shared by precision_propagate (one integration) and the trajectory
+    sampling path (t_eval), so both always integrate exactly the same physics.
+    """
+    srp_sun_dir = None
+    if include_srp:
+        if sun_dir is not None:
+            srp_sun_dir = np.asarray(sun_dir, float)
+        else:
+            try:
+                from engine.ingest.horizons import sun_direction_geocentric
+
+                fetched = sun_direction_geocentric(start_time.date().isoformat())
+                if fetched is not None:
+                    srp_sun_dir = np.asarray(fetched, float)
+            except Exception:  # noqa: BLE001 — fall back to default in srp_acceleration
+                srp_sun_dir = None
+
+    def rhs(t: float, y: np.ndarray) -> np.ndarray:
+        r = y[:3]
+        v = y[3:]
+
+        # Two-body
+        a = -MU_EARTH * r / np.linalg.norm(r) ** 3
+
+        # J2 (and J3)
+        if include_j2:
+            a += j2_acceleration(r, include_j3=include_j3)
+
+        # Atmospheric drag — dated to the propagated epoch so space-weather-
+        # dependent density matches the event, not the developer's wall clock.
+        if include_drag:
+            current_time = start_time + timedelta(seconds=t)
+            a += drag_acceleration_from_alt(
+                r, v, date=current_time, mass_kg=mass_kg, area_m2=area_m2,
+                cd=cd, f107=f107, f107a=f107a, ap=ap,
+            )
+
+        # Solar radiation pressure (real Sun direction + eclipse check)
+        if include_srp:
+            a += srp_acceleration(
+                r, area_m2, mass_kg, cr,
+                sun_dir=srp_sun_dir, check_shadow=srp_eclipse,
+            )
+
+        return np.concatenate([v, a])
+
+    return rhs
+
+
 def precision_propagate(
     r0: np.ndarray,
     v0: np.ndarray,
@@ -125,6 +193,7 @@ def precision_propagate(
     srp_eclipse: bool = True,
     rtol: float = 1e-11,
     atol: float = 1e-11,
+    t_eval: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """High-fidelity numerical propagation with perturbations.
 
@@ -139,62 +208,40 @@ def precision_propagate(
             on, fetched once from JPL Horizons (falls back to +X default).
         srp_eclipse: if True, zero SRP when the satellite is in Earth's shadow.
         rtol, atol: integrator tolerances.
+        t_eval: optional times (s, relative to start, monotonic in the
+            integration direction) at which to sample the arc.
 
     Returns:
-        (position, velocity) at the end of the arc (km, km/s).
+        (position, velocity) at the end of the arc (km, km/s) — or, with
+        ``t_eval``, two (N, 3) arrays of state samples along the arc.
     """
     if start_time is None:
         start_time = datetime.now(timezone.utc)
 
-    # Resolve the Sun direction once (outside the integrator) for SRP.
-    srp_sun_dir = None
-    if include_srp:
-        if sun_dir is not None:
-            srp_sun_dir = np.asarray(sun_dir, float)
-        else:
-            try:
-                from engine.ingest.horizons import sun_direction_geocentric
-
-                fetched = sun_direction_geocentric(start_time.date().isoformat())
-                if fetched is not None:
-                    srp_sun_dir = np.asarray(fetched, float)
-            except Exception:  # noqa: BLE001 — fall back to default in srp_acceleration
-                srp_sun_dir = None
-
-    def rhs(t: float, y: np.ndarray) -> np.ndarray:
-        r = y[:3]
-        v = y[3:]
-        r_mag = np.linalg.norm(r)
-
-        # Two-body
-        a = -MU_EARTH * r / r_mag**3
-
-        # J2 (and J3)
-        if include_j2:
-            a += j2_acceleration(r, include_j3=include_j3)
-
-        # Atmospheric drag
-        if include_drag:
-            current_time = start_time + timedelta(seconds=t)
-            a += drag_acceleration_from_alt(
-                r, v, date=current_time, mass_kg=mass_kg, area_m2=area_m2,
-                cd=cd, f107=f107, f107a=f107a, ap=ap,
-            )
-
-        # Solar radiation pressure (real Sun direction + eclipse check)
-        if include_srp:
-            a += srp_acceleration(
-                r, area_m2, mass_kg, cr,
-                sun_dir=srp_sun_dir, check_shadow=srp_eclipse,
-            )
-
-        return np.concatenate([v, a])
+    rhs = _build_rhs(
+        start_time,
+        include_j2=include_j2,
+        include_j3=include_j3,
+        include_drag=include_drag,
+        include_srp=include_srp,
+        mass_kg=mass_kg,
+        area_m2=area_m2,
+        cd=cd,
+        cr=cr,
+        f107=f107,
+        f107a=f107a,
+        ap=ap,
+        sun_dir=sun_dir,
+        srp_eclipse=srp_eclipse,
+    )
 
     y0 = np.concatenate([np.asarray(r0, float), np.asarray(v0, float)])
     sol = solve_ivp(
         rhs, (0.0, duration_s), y0,
-        method="DOP853", rtol=rtol, atol=atol,
+        method="DOP853", rtol=rtol, atol=atol, t_eval=t_eval,
     )
+    if t_eval is not None:
+        return sol.y[:3].T.copy(), sol.y[3:].T.copy()
     y = sol.y[:, -1]
     return y[:3], y[3:]
 
@@ -205,34 +252,53 @@ def precision_miss_at_tca(
     r_secondary_tca: np.ndarray,
     dv_rsw_kms: np.ndarray,
     lead_time_s: float,
-    rsw_rotation: np.ndarray,
+    epoch_tca: datetime | None = None,
     **prop_kwargs,
 ) -> float:
     """Predicted miss distance (km) at TCA after a burn, using precision propagation.
 
     Back-propagates the primary to the burn epoch, applies Δv in RSW, and
-    forward-propagates with full perturbations to TCA. The secondary is
-    propagated un-maneuvered.
+    forward-propagates with the same perturbations to TCA. The secondary is
+    held at its refined TCA position (it is assumed un-maneuvered).
+
+    The Δv is expressed in the primary's RSW frame AT THE BURN EPOCH, and the
+    frame is re-derived here from the back-propagated state. The RSW frame
+    rotates with the orbit (~4°/min in LEO — over 230° across a one-hour lead),
+    so a frame carried in from another epoch (e.g. TCA) applies the burn in the
+    wrong direction; that was a real bug — the caller used to supply the frame.
 
     Args:
         r_primary_tca, v_primary_tca: primary state at TCA (km, km/s).
         r_secondary_tca: secondary position at TCA (km).
-        dv_rsw_kms: Δv in RSW (km/s).
+        dv_rsw_kms: Δv in the burn-epoch RSW frame (km/s).
         lead_time_s: burn lead time (seconds).
-        rsw_rotation: 3×3 RSW rotation matrix at the burn epoch.
-        **prop_kwargs: passed to precision_propagate.
+        epoch_tca: the event's TCA. Anchors the space-weather-dependent drag
+            epoch correctly for each leg — the backward leg starts at TCA, the
+            forward leg at the burn epoch. A single shared epoch cannot be
+            right for both. If omitted, the drag model defaults to "now".
+        **prop_kwargs: passed to precision_propagate for both legs.
 
     Returns:
-        Post-burn miss distance (km).
+        Post-burn miss distance (km) at the original TCA.
     """
+    prop_kwargs.pop("start_time", None)  # the per-leg epochs below take precedence
+    if epoch_tca is not None:
+        back_kwargs = {**prop_kwargs, "start_time": epoch_tca}
+        fwd_kwargs = {
+            **prop_kwargs,
+            "start_time": epoch_tca - timedelta(seconds=lead_time_s),
+        }
+    else:
+        back_kwargs = fwd_kwargs = prop_kwargs
     # Back-propagate primary to burn epoch
     r_p_b, v_p_b = precision_propagate(
-        r_primary_tca, v_primary_tca, -lead_time_s, **prop_kwargs
+        r_primary_tca, v_primary_tca, -lead_time_s, **back_kwargs
     )
-    # Apply Δv in RSW → inertial
-    dv_inertial = rsw_rotation.T @ np.asarray(dv_rsw_kms, float)
+    # The Δv frame is the primary's RSW frame AT THE BURN EPOCH.
+    rotation = rsw_rotation(r_p_b, v_p_b)
+    dv_inertial = rotation.T @ np.asarray(dv_rsw_kms, float)
     # Forward-propagate maneuvered primary to TCA
     r_p_new, _ = precision_propagate(
-        r_p_b, v_p_b + dv_inertial, lead_time_s, **prop_kwargs
+        r_p_b, v_p_b + dv_inertial, lead_time_s, **fwd_kwargs
     )
     return float(np.linalg.norm(r_p_new - np.asarray(r_secondary_tca, float)))

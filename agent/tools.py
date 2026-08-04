@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from engine.frames import relative_state_rsw, rsw_rotation
+from engine.frames import relative_state_rsw
 from engine.maneuvers import (
     DEFAULT_ISP_S,
     DEFAULT_MASS_KG,
@@ -315,41 +315,41 @@ class AgentTools:
     def fuel_optimal_maneuver(
         self, event_id: int, target_miss_km: float = 10.0, lead_time_min: float = 60.0
     ) -> dict:
-        """Minimum-Δv avoidance burn for a target miss, verified numerically.
+        """Minimum-Δv avoidance burn for a target miss, numerically verified.
 
-        Uses the CW state-transition matrix to find the fuel-optimal burn
-        direction/magnitude, then verifies the actual post-burn miss with the
-        high-fidelity numerical propagator (J2 + drag). Returns both the CW
-        estimate and the verified result.
+        Plans the burn with the exact closed-form minimum-|Δv| solution on the
+        Clohessy-Wiltshire map, then propagates BOTH objects with truth
+        dynamics (J2 + drag) and re-screens the post-burn trajectories. The
+        relative state is re-derived as a full vector at TCA, and the
+        verification derives its own burn-epoch RSW frame internally.
+
+        Returns the CW plan alongside the verified result — including
+        ``closest_approach_km``, the re-screened post-burn closest approach,
+        which is the quantity that actually protects the spacecraft.
         """
         e = self._event(event_id)
         state = self._inertial_state_at_tca(e)
-        # RSW rotation at TCA (for Δv frame)
-        rotation = rsw_rotation(state.r_primary, state.v_primary)
+        # True relative state at TCA (full vector) in the primary's RSW frame
+        miss_rsw, rel_vel_rsw = relative_state_rsw(
+            state.r_primary, state.v_primary, state.r_secondary, state.v_secondary
+        )
         # Mean motion from the primary's orbit
         alt = (self.ctx.primary.perigee_alt_km + self.ctx.primary.apogee_alt_km) / 2
         n = mean_motion_from_alt(alt)
-        miss_rsw = [e.miss_r_km, e.miss_s_km, e.miss_w_km]
-        vrel_rsw = [
-            e.relative_velocity_kms if e.geometry == "in-track" else 0.0,
-            e.relative_velocity_kms if e.geometry != "in-track" else e.relative_velocity_kms,
-            0.0,
-        ]
-        # Use the actual relative velocity magnitude in the dominant direction
-        vrel_rsw = [0.0, e.relative_velocity_kms, 0.0]
 
         result = fuel_optimal_with_verification(
             mean_motion=n,
             lead_time_s=lead_time_min * 60.0,
             miss_rsw=miss_rsw,
-            rel_vel_rsw=vrel_rsw,
+            rel_vel_rsw=rel_vel_rsw,
             target_miss_km=target_miss_km,
             r_primary_tca=state.r_primary,
             v_primary_tca=state.v_primary,
             r_secondary_tca=state.r_secondary,
-            rsw_rotation=rotation,
+            v_secondary_tca=state.v_secondary,
             mass_kg=self.ctx.mass_kg,
             isp_s=self.ctx.isp_s,
+            epoch_tca=e.tca,
             include_j2=True,
             include_drag=True,
             include_srp=False,
@@ -367,9 +367,12 @@ class AgentTools:
             "propellant_g": round(result["propellant_g"], 1),
             "cw_predicted_miss_km": round(result["cw_predicted_miss_km"], 3),
             "verified_miss_km": round(result["verified_miss_km"], 3),
+            "closest_approach_km": round(result["closest_approach_km"], 3),
             "satisfies_target": result["satisfies_target"],
             "lead_time_min": lead_time_min,
-            "note": result.get("note", "fuel-optimal burn (CW-optimized, numerically verified)"),
+            "note": result.get(
+                "note", "fuel-optimal burn (exact CW plan, numerically verified, re-screened)"
+            ),
         }
 
     def collision_probability_realistic(self, event_id: int, realism_factor: float = 2.0) -> dict:
@@ -378,10 +381,18 @@ class AgentTools:
         Reports both so the operator sees the effect of the covariance-realism
         assumption. The realism factor inflates the analytic covariance toward
         operational realism (Foster/Hall methodology).
+
+        The relative velocity is re-derived as a full vector at TCA, because the
+        B-plane orientation — and therefore Pc — depends on its *direction*, not
+        just its magnitude. Assuming a purely in-track velocity picks the wrong
+        encounter plane and can shift Pc by orders of magnitude on radial- or
+        cross-track-dominated conjunctions.
         """
         e = self._event(event_id)
-        miss_rsw = [e.miss_r_km, e.miss_s_km, e.miss_w_km]
-        vrel_rsw = [0.0, e.relative_velocity_kms, 0.0]
+        state = self._inertial_state_at_tca(e)
+        miss_rsw, vrel_rsw = relative_state_rsw(
+            state.r_primary, state.v_primary, state.r_secondary, state.v_secondary
+        )
         result = collision_probability_both(miss_rsw, vrel_rsw, e.hbr_km, realism_factor)
         return {
             "event_id": event_id,
@@ -391,6 +402,63 @@ class AgentTools:
             "note": (
                 "pc_realistic uses a documented covariance realism factor "
                 f"(k={realism_factor}); see docs/ADVANCED_ASTRODYNAMICS.md."
+            ),
+        }
+
+    def get_bplane(self, event_id: int, realism_factor: float = 2.0) -> dict:
+        """B-plane plot data for a conjunction — the canonical conjunction diagram.
+
+        Re-derives the full relative state at TCA (the B-plane basis needs the
+        complete relative-velocity vector, not just its magnitude), projects the
+        miss vector and covariance onto the B-plane, and returns everything needed
+        to render the diagram: the miss point (ξ, ζ), the hard-body-radius circle,
+        the 1σ/2σ/3σ covariance contours, and how many sigmas out the miss sits.
+
+        The returned ``pc`` is recomputed from this exact projection, so the plot
+        and the collision probability can never disagree. ``realism`` carries the
+        same geometry under the documented covariance-realism factor (Foster/Hall),
+        letting the plot show the inflated uncertainty alongside the analytic one.
+        """
+        e = self._event(event_id)
+        # Re-derive the full inertial state at TCA to get the true relative velocity.
+        state = self._inertial_state_at_tca(e)
+        miss_rsw, rel_vel_rsw = relative_state_rsw(
+            state.r_primary, state.v_primary, state.r_secondary, state.v_secondary
+        )
+        from engine.viz.bplane import bplane_data
+
+        data = bplane_data(
+            miss_rsw, rel_vel_rsw, hbr_km=e.hbr_km, realism_factor=realism_factor
+        )
+        if data is None:
+            return {
+                "available": False,
+                "event_id": event_id,
+                "note": "B-plane undefined (near-zero relative velocity).",
+            }
+        return {
+            "available": True,
+            "event_id": event_id,
+            "secondary_name": e.secondary_name,
+            "secondary_norad": e.secondary_norad,
+            "tca": e.tca.isoformat().replace("+00:00", "Z"),
+            "miss_bp": {"xi": data["miss_bp"][0], "zeta": data["miss_bp"][1]},
+            "miss_norm_km": data["miss_norm_km"],
+            "miss_3d_km": e.miss_distance_km,
+            "vrel_kms": e.relative_velocity_kms,
+            "hbr_km": data["hbr_km"],
+            "miss_inside_hbr": data["miss_inside_hbr"],
+            "ellipse": data["ellipse"],
+            "sigma_levels": data["sigma_levels"],
+            "mahalanobis_sigma": data["mahalanobis_sigma"],
+            "sigma_contour_containing_miss": data["sigma_contour_containing_miss"],
+            "axes_rsw": data["axes_rsw"],
+            "pc": data["pc"],
+            "realism": data["realism"],
+            "note": (
+                "Covariance is the documented fixed diagonal RSW assumption "
+                "(engine/pc.py); realism.pc inflates it by k for operational "
+                "realism (Foster/Hall). See docs/ADVANCED_ASTRODYNAMICS.md."
             ),
         }
 
@@ -982,6 +1050,7 @@ class AgentTools:
         "submit_maneuver_card",
         "fuel_optimal_maneuver",
         "collision_probability_realistic",
+        "get_bplane",
         "generate_cdm_message",
         "query_knowledge_base",
         "get_near_earth_objects",
@@ -1145,6 +1214,24 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "event_id": {"type": "integer"},
                     "realism_factor": {"type": "number", "description": "covariance realism factor k, default 2.0"},
+                },
+                "required": ["event_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_bplane",
+            "description": "Get the B-plane plot data for a conjunction — the canonical conjunction-assessment diagram. Returns the miss point (ξ, ζ), the in-plane miss distance, the hard-body-radius circle, the 1σ/2σ/3σ covariance contours, how many sigmas out the miss sits (mahalanobis_sigma), the Pc recomputed from that exact projection, and the same geometry under the covariance-realism factor.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "event_id": {"type": "integer"},
+                    "realism_factor": {
+                        "type": "number",
+                        "description": "Covariance-realism factor k (Σ_real = k·Σ_analytic); default 2.0.",
+                    },
                 },
                 "required": ["event_id"],
             },

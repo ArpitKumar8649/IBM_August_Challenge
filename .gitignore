@@ -30,3 +30,10 @@ data/tle_snapshots/
 # Secrets — never commit
 *_credentials*
 *.pem
+
+# Session transcripts — never commit
+*lastchat*.txt
+*lastwork*.txt
+*lastagentwork*.txt
+*prevworks_chat*.txt
+chatlast.txt

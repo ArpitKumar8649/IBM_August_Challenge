@@ -340,7 +340,151 @@
 .astro-row { font-size: 0.74rem; color: var(--ink-2); }
 .astro-craft { color: var(--ink-3); }
 
-/* ---------- system health ---------- */
+/* ---------- B-plane encounter plot (§5.2) ----------
+   Sigma contours use a validated single-hue ordinal ramp (light→dark, one hue,
+   monotone lightness, each step clearing the surface at ≥3:1) — checked with the
+   dataviz validator against this dashboard's --bg-1 surface, not eyeballed. */
+.bplane {
+  --bp-s1: #9ec5f4;
+  --bp-s2: #5598e7;
+  --bp-s3: #256abf;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.bp-head { display: flex; align-items: center; gap: 10px; }
+.bp-toggles { display: flex; gap: 8px; margin-left: auto; }
+.bp-seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.bp-seg-btn {
+  background: none;
+  border: none;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  padding: 0.35em 0.75em;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.bp-seg-btn:hover { color: var(--ink-2); }
+.bp-seg-btn.active { color: var(--accent); background: var(--accent-soft); }
+.bp-loading { padding: 28px; text-align: center; color: var(--ink-3); font-size: 0.78rem; }
+/* refetch holds the previous figure instead of flashing a skeleton */
+.bp-stale { opacity: 0.55; transition: opacity 0.15s; }
+
+/* headline stats — the hero figure is the miss in sigmas */
+.bp-stats { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.bp-hero { display: flex; flex-direction: column; gap: 2px; }
+.bp-hero-v {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink-1);
+}
+.bp-hero-l { font-size: 0.68rem; color: var(--ink-3); }
+.bp-substats { display: flex; gap: 22px; flex-wrap: wrap; }
+.bp-sub { display: flex; flex-direction: column; gap: 2px; }
+.bp-sub-v { font-size: 0.86rem; color: var(--ink-1); }
+.bp-sub-l { font-size: 0.62rem; color: var(--ink-3); }
+
+/* the plot itself */
+.bp-plotwrap { position: relative; max-width: 460px; }
+.bp-svg { width: 100%; height: auto; display: block; }
+.bp-bg { fill: var(--bg-1); stroke: var(--line); stroke-width: 1; }
+.bp-grid { stroke: var(--line); stroke-width: 0.5; }
+.bp-axis { stroke: var(--line-strong); stroke-width: 0.75; }
+.bp-tick { fill: var(--ink-3); font-family: var(--font-mono); font-size: 8px; font-variant-numeric: tabular-nums; }
+.bp-axis-title { fill: var(--ink-3); font-family: var(--font-mono); font-size: 8.5px; }
+
+.bp-sigma { fill: none; stroke-width: 2; }
+.bp-sigma-1 { stroke: var(--bp-s1); }
+.bp-sigma-2 { stroke: var(--bp-s2); }
+.bp-sigma-3 { stroke: var(--bp-s3); }
+.bp-realism { fill: none; stroke: var(--bp-s3); stroke-width: 1.5; stroke-dasharray: 5 4; opacity: 0.75; }
+/* the same uncertainty when it is smaller than three readable rings — one region */
+.bp-sigma-blob { fill: var(--bp-s2); fill-opacity: 0.3; stroke: var(--bp-s1); stroke-width: 1.5; }
+.bp-leader { stroke: var(--line-strong); stroke-width: 1; }
+.bp-primary { fill: var(--ink-2); }
+.bp-hbr { fill: none; stroke: var(--danger); stroke-width: 2; }
+/* A wider transparent stroke gives the 2px HBR ring a grabbable hit target. */
+.bp-hbr-hit { fill: none; stroke: transparent; stroke-width: 14; cursor: pointer; }
+.bp-missline { stroke: var(--warn); stroke-width: 1; opacity: 0.45; }
+/* 2px surface ring separates the marker from any contour it overlaps */
+.bp-miss-ring { fill: var(--bg-1); }
+.bp-miss { fill: var(--warn); }
+.bp-miss-label { fill: var(--ink-2); font-family: var(--font-mono); font-size: 9px; }
+/* A surface scrim + halo under a direct label, so it survives crossing a contour —
+   the 2px surface separation rule applied to text rather than to a mark. The scrim
+   closes the word spaces the stroke-following halo would leave open; it is slightly
+   transparent so the reader can still see that a mark passes beneath. */
+.bp-label-bg { fill: var(--bg-1); fill-opacity: 0.82; }
+.bp-label-halo {
+  fill: none;
+  stroke: var(--bg-1);
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+.bp-hit { fill: transparent; cursor: pointer; }
+.bp-sigma:focus-visible, .bp-realism:focus-visible, .bp-sigma-blob:focus-visible,
+.bp-hit:focus-visible, .bp-hbr-hit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* tooltip — enhances; the table view and stat row carry every value too */
+.bp-tip {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  background: var(--bg-3);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  min-width: 150px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.bp-tip-t { font-size: 0.68rem; color: var(--ink-1); margin-bottom: 5px; font-weight: 600; }
+.bp-tip-r { display: flex; justify-content: space-between; gap: 12px; font-size: 0.64rem; color: var(--ink-2); }
+.bp-tip-r .mono { color: var(--ink-1); }
+
+/* legend — always present; identity never rests on colour alone */
+.bp-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.66rem; color: var(--ink-2); }
+.bp-key { display: inline-flex; align-items: center; gap: 5px; }
+.bp-key-note { color: var(--ink-3); font-style: normal; }
+.bp-note { font-size: 0.66rem; color: var(--ink-3); line-height: 1.5; margin: 0; max-width: 62ch; }
+
+/* table view — the WCAG-clean twin of the plot */
+.bp-table { width: 100%; max-width: 560px; border-collapse: collapse; font-size: 0.7rem; }
+.bp-cap { text-align: left; color: var(--ink-3); font-size: 0.66rem; padding-bottom: 8px; }
+.bp-table th, .bp-table td { text-align: left; padding: 5px 10px 5px 0; border-bottom: 1px solid var(--line); }
+.bp-table thead th { color: var(--ink-3); font-weight: 500; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.bp-table tbody th { color: var(--ink-2); font-weight: 400; }
+.bp-table td { color: var(--ink-1); font-variant-numeric: tabular-nums; }
+
+/* Forced-colors (Windows high contrast): every hue collapses to a system colour, so
+   the validated σ ramp stops separating the contours. They are still nested and
+   monotonic — size alone distinguishes them — but texture makes it unambiguous,
+   which is the dataviz spec's CVD/print/forced-colors fallback. Scoped to this
+   figure; the app-wide pass is 7.x. */
+@media (forced-colors: active) {
+  .bp-sigma-1 { stroke-dasharray: none; }
+  .bp-sigma-2 { stroke-dasharray: 7 3; }
+  .bp-sigma-3 { stroke-dasharray: 2 3; }
+  .bp-realism { stroke-dasharray: 11 3 2 3; opacity: 1; }
+  /* The collision cross-section must not read as another contour. */
+  .bp-hbr { stroke-width: 3; }
+  /* Transparent hit targets are forced opaque in some implementations. */
+  .bp-hit, .bp-hbr-hit { forced-color-adjust: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bp-stale { transition: none; }
+}
+
 .health-wrap { display: grid; grid-template-columns: 1fr 1.4fr; gap: 20px; }
 .health-summary { padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; }
 .health-head { display: flex; justify-content: space-between; align-items: center; }
