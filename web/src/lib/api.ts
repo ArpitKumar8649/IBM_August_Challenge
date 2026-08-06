@@ -16,6 +16,7 @@ import type {
   CatalogStats,
   SpaceWeatherDetailed,
   SystemHealth,
+  KnowledgeChunk,
 } from '../types'
 import { SAMPLE_EVENTS, SAMPLE_SATELLITE, SAMPLE_WEATHER, SAMPLE_MANEUVERS, sampleBPlane } from '../data/sample'
 
@@ -214,4 +215,21 @@ export async function* streamChat(message: string): AsyncGenerator<{
       }
     }
   }
+}
+
+// ============================================================
+// Phase 5.4 — Explainers & Knowledge Base
+// ============================================================
+
+export async function fetchKnowledge(query: string, k = 3): Promise<KnowledgeChunk[] | null> {
+  const data = await fetchRaw<{ chunks: KnowledgeChunk[] }>(`/api/knowledge?query=${encodeURIComponent(query)}&k=${k}`)
+  // Return the fetched chunks, or a static sample fallback if the API is offline
+  return data?.chunks ?? [
+    {
+      chunk_id: "sample-1",
+      title: "Fallback Knowledge",
+      topic: "offline",
+      body: "The backend is currently offline, so the real knowledge base cannot be queried. Start the FastAPI server to search the actual vector database."
+    }
+  ]
 }

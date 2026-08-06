@@ -9,6 +9,7 @@ import { fetchBPlane } from '../lib/api'
  * Everything an analyst needs to judge a conjunction lives in it: the miss point,
  * the hard-body-radius circle, and the covariance contours. The plot renders the
  * exact projection the engine computed Pc from (`engine/viz/bplane.py`), so the
+import Explainer from '../components/Explainer'
  * picture and the probability beside it can never disagree.
  *
  * Two honest scales, because the quantities routinely span two or three orders of

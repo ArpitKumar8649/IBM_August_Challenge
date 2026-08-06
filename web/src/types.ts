@@ -237,3 +237,14 @@ export interface SystemHealth {
   sources_total: number
   sources: SourceHealth[]
 }
+
+// ============================================================
+// Knowledge Base
+// ============================================================
+
+export interface KnowledgeChunk {
+  chunk_id: string
+  title: string
+  topic: string
+  body: string
+}

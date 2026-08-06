@@ -8,6 +8,8 @@ import EarthObservationPanel from '../panels/EarthObservationPanel'
 import DiscoveryPanel from '../panels/DiscoveryPanel'
 import SolarSystemPanel from '../panels/SolarSystemPanel'
 import SystemHealthPanel from '../panels/SystemHealthPanel'
+import Explainer from '../components/Explainer'
+import LearnPanel from '../panels/LearnPanel'
 import BPlanePlot from '../viz/BPlanePlot'
 import '../styles/dashboard.css'
 
@@ -16,7 +18,7 @@ interface ChatMsg {
   text: string
 }
 
-type Tab = 'mission' | 'weather' | 'earth' | 'discovery' | 'solar' | 'health'
+type Tab = 'mission' | 'weather' | 'earth' | 'discovery' | 'solar' | 'health' | 'learn'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'mission', label: 'Mission Control' },
@@ -25,6 +27,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'discovery', label: 'Discovery' },
   { id: 'solar', label: 'Solar System' },
   { id: 'health', label: 'System Health' },
+  { id: 'learn', label: 'Learn' },
 ]
 
 export default function Dashboard() {
@@ -160,7 +163,7 @@ export default function Dashboard() {
                       <div className="event-top">
                         <span className={`risk-chip ${riskTone(e.risk_score)}`}>{e.risk_score.toFixed(0)}</span>
                         <span className="event-name">{e.secondary_name}</span>
-                        {e.storm_flag && <span className="storm-flag" title="Storm flag — re-screen near TCA">⚠</span>}
+                        {e.storm_flag && <span className="storm-flag"><Explainer termId="storm_flag">⚠</Explainer></span>}
                       </div>
                       <div className="event-meta mono">
                         miss {e.miss_km.toFixed(2)} km · {e.vrel_kms.toFixed(1)} km/s · {e.geometry}
@@ -200,25 +203,25 @@ export default function Dashboard() {
                   <div className="detail-grid">
                     <div className="metric">
                       <span className="m-v mono">{selected.miss_km.toFixed(3)}</span>
-                      <span className="m-l">miss distance · km</span>
+                      <span className="m-l"><Explainer termId="miss">miss distance</Explainer> · km</span>
                     </div>
                     <div className="metric">
                       <span className="m-v mono">{selected.vrel_kms.toFixed(2)}</span>
-                      <span className="m-l">rel. velocity · km/s</span>
+                      <span className="m-l"><Explainer termId="vrel">rel. velocity</Explainer> · km/s</span>
                     </div>
                     <div className="metric">
                       <span className="m-v mono">{selected.pc.toExponential(2)}</span>
-                      <span className="m-l">collision probability</span>
+                      <span className="m-l"><Explainer termId="pc">collision probability</Explainer></span>
                     </div>
                     <div className="metric">
                       <span className="m-v mono"><TcaCountdown target={selected.tca} /></span>
-                      <span className="m-l">time to closest approach</span>
+                      <span className="m-l"><Explainer termId="tca">time to closest approach</Explainer></span>
                     </div>
                   </div>
 
                   {selected.miss_rsw_km && (
                     <div className="rsw">
-                      <span className="eyebrow" style={{ fontSize: '0.6rem' }}>miss geometry · RSW</span>
+                      <span className="eyebrow" style={{ fontSize: '0.6rem' }}><Explainer termId="rsw">miss geometry · RSW</Explainer></span>
                       <div className="rsw-bars">
                         {([
                           ['radial', selected.miss_rsw_km.radial, 'var(--danger)'],
@@ -304,6 +307,7 @@ export default function Dashboard() {
         {tab === 'discovery' && <div className="tab-pad"><DiscoveryPanel /></div>}
         {tab === 'solar' && <div className="tab-pad"><SolarSystemPanel /></div>}
         {tab === 'health' && <div className="tab-pad"><SystemHealthPanel /></div>}
+        {tab === 'learn' && <div className="tab-pad"><LearnPanel /></div>}
       </div>
     </div>
   )
