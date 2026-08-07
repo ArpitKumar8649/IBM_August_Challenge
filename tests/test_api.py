@@ -209,3 +209,19 @@ def test_chat_stream_sse(client, monkeypatch):
     assert "tool_call" in text
     assert "content" in text
     assert "done" in text
+
+
+def test_knowledge_learn_endpoint(client):
+    """The Learn tab endpoint must return full chunks: plain + technical body."""
+    r = client.get("/api/knowledge/learn?query=collision%20probability&k=3")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["count"] >= 1
+    assert len(body["chunks"]) == body["count"]
+    for chunk in body["chunks"]:
+        assert set(chunk) == {"chunk_id", "title", "topic", "plain", "body", "score"}
+        # The Learn tab shows `plain` first — it must never be empty here.
+        assert len(chunk["plain"]) > 50
+        assert len(chunk["body"]) > 50
+    # A Pc query must surface collision-probability chunks (retrieval works).
+    assert any(c["topic"] == "collision-probability" for c in body["chunks"])

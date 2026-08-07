@@ -246,5 +246,7 @@ export interface KnowledgeChunk {
   chunk_id: string
   title: string
   topic: string
+  plain: string
   body: string
+  score?: number
 }

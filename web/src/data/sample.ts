@@ -6,6 +6,7 @@ import type {
   BPlane,
   CovarianceEllipse,
   SigmaContour,
+  KnowledgeChunk,
 } from '../types'
 
 /**
@@ -203,4 +204,164 @@ export function sampleBPlane(event: ScoredConjunction, realismFactor = 2): BPlan
       'Sample geometry — assumes an in-track-dominated encounter. Start the API for the ' +
       'true encounter plane derived from the full relative-velocity vector.',
   }
+}
+
+// ============================================================
+// Knowledge base — offline mirror of agent/knowledge.py (Learn tab)
+// ============================================================
+
+/**
+ * Abridged offline mirror of the real knowledge base (agent/knowledge.py), so the
+ * Learn tab works without the backend. `plain` is verbatim from the KB; `body` is
+ * trimmed to the key point — the full technical text streams from /api/knowledge/learn
+ * when live.
+ */
+export const SAMPLE_KNOWLEDGE: KnowledgeChunk[] = [
+  {
+    chunk_id: 'ca-001', title: 'Conjunction assessment workflow', topic: 'conjunction-assessment',
+    plain:
+      'A conjunction is a close call between two objects in orbit. A computer checks your ' +
+      'satellite against every tracked object for the next few days and finds every near-miss. ' +
+      'For each one it calculates exactly when they’ll be closest (the TCA) and how far ' +
+      'apart they’ll be (the miss distance), then estimates the chance of an actual ' +
+      'collision. Anything worrying gets a closer look, and if the risk is real, the operator ' +
+      'plans a small engine burn to move out of the way.',
+    body:
+      'The standard workflow: screen the catalog over a 3–7 day window; compute TCA and ' +
+      'miss distance per candidate; compute collision probability (Pc); triage against ' +
+      'thresholds; plan and execute an avoidance maneuver for events above threshold.',
+  },
+  {
+    chunk_id: 'ca-002', title: 'Screening thresholds and triage', topic: 'conjunction-assessment',
+    plain:
+      'Not every close call deserves panic. Operators draw an imaginary safety bubble around ' +
+      'their satellite — anything predicted to enter the bubble, or with a collision ' +
+      'chance above about 1-in-10,000, gets a full review. OrbitWarden ranks events mostly by ' +
+      'solid facts: how close the miss is, how fast the objects are closing, the geometry of ' +
+      'the approach, and whether the other object can even move out of the way.',
+    body:
+      'Common practice: a hard-body screening volume plus a Pc threshold (often 1e-4 manned, ' +
+      '1e-5 robotic). OrbitWarden ranks on a transparent composite risk score rather than Pc ' +
+      'alone, because Pc is sensitive to covariance assumptions while geometry and timing are robust.',
+  },
+  {
+    chunk_id: 'geo-001', title: 'The RSW frame and encounter geometry', topic: 'geometry',
+    plain:
+      'To describe a near-miss, orbit experts use directions relative to your satellite: ' +
+      'Radial (up/down toward Earth), in-track (ahead/behind along your path), and cross-track ' +
+      '(sideways). An in-track miss is like a car passing you on the highway — common and ' +
+      'predictable. A radial miss is like something dropping past you from above — rarer ' +
+      'and trickier to predict.',
+    body:
+      'The RSW frame is anchored to the primary satellite: R along the position vector, W along ' +
+      'the orbit normal (r×v), S completing the right-handed triad (~velocity direction). ' +
+      'The B-plane (perpendicular to the relative velocity) is where collision probability is computed.',
+  },
+  {
+    chunk_id: 'pc-001', title: 'Collision probability — the short-term encounter model', topic: 'collision-probability',
+    plain:
+      'We never know a satellite’s position perfectly — there’s always a fuzzy ' +
+      'cloud of uncertainty around it. The collision probability answers: “given that ' +
+      'fuzziness, what are the odds the two objects actually overlap?” Picture a dartboard ' +
+      'face-on to the incoming object (that’s the B-plane): we draw the uncertainty cloud ' +
+      'and the satellite’s body on it, and ask what fraction of the cloud overlaps the target.',
+    body:
+      'The Alfriend–Foster 2-D model projects the combined position covariance onto the ' +
+      'B-plane and evaluates a 2-D Gaussian integral over the hard-body circle. Valid for fast ' +
+      'encounters (~10–15 km/s in LEO).',
+  },
+  {
+    chunk_id: 'pc-002', title: 'Covariance realism and probability dilution', topic: 'collision-probability',
+    plain:
+      'A weird fact: more uncertainty doesn’t always mean more risk. If two objects are ' +
+      'predicted to miss comfortably, growing the uncertainty cloud first *increases* the ' +
+      'apparent risk (the cloud spreads onto the target), then eventually *decreases* it (the ' +
+      'probability thins out over a huge area). Because public orbit data underestimates true ' +
+      'uncertainty, OrbitWarden deliberately inflates it by a documented factor.',
+    body:
+      'For an off-center miss, Pc is non-monotonic in covariance — density first spreads ' +
+      'toward the hard body before dilution dominates. OrbitWarden applies a documented ' +
+      'Foster/Hall realism factor (k, typically 1.5–3 for LEO).',
+  },
+  {
+    chunk_id: 'man-001', title: 'Avoidance maneuver planning', topic: 'maneuver-planning',
+    plain:
+      'Dodging a collision means firing the satellite’s thrusters to arrive at the meeting ' +
+      'point earlier or later — like speeding up so someone crossing the road passes behind ' +
+      'you. Burn early and it’s cheap (a tiny nudge has days to grow into a big miss), but ' +
+      'the predictions are less certain. Every gram of fuel burned is a day less of mission life, ' +
+      'so we always re-run the simulation to confirm the burn actually creates the safe miss.',
+    body:
+      'Key considerations: lead time (earlier is cheaper but less certain), direction (in-track ' +
+      'is most effective for along-track miss), and propellant (finite, mission-lifetime). The ' +
+      'maneuver is verified by re-propagating and confirming the post-burn miss.',
+  },
+  {
+    chunk_id: 'man-003', title: 'Propellant budgeting — the rocket equation', topic: 'maneuver-planning',
+    plain:
+      'Fuel on a satellite is like money in a bank account you can never refill — every ' +
+      'maneuver is a withdrawal. For a CubeSat with simple cold-gas thrusters, a gentle 10 cm/s ' +
+      'nudge costs a few grams, but a hefty 1 m/s burn costs hundreds. That’s why operators ' +
+      'set fuel budgets and why OrbitWarden always searches for the cheapest safe option first.',
+    body:
+      'Tsiolkovsky: Δm = m·(1 − exp(−Δv/(g₀·Isp))). A CubeSat ' +
+      'cold-gas thruster (Isp ~ 50–70 s): 10 cm/s ≈ grams; 1 m/s ≈ hundreds of grams.',
+  },
+  {
+    chunk_id: 'drag-001', title: 'Atmospheric drag and space weather', topic: 'atmosphere',
+    plain:
+      'Even at 400 km up there’s a whisper of atmosphere — and at orbital speeds it ' +
+      'acts like friction, constantly slowing satellites and pulling them down. During a ' +
+      'geomagnetic storm the upper atmosphere heats up and puffs out like a hot air balloon, ' +
+      'and drag can jump by ~70%. A storm literally changes where every satellite will be tomorrow.',
+    body:
+      'Drag acceleration a = −½·(Cd·A/m)·ρ·|v|·v. Density ' +
+      'ρ varies orders of magnitude with altitude, F10.7, and Kp/Ap; a strong storm inflates ' +
+      '400 km density ~1.7×. OrbitWarden models ρ with NRLMSISE-00.',
+  },
+  {
+    chunk_id: 'drag-002', title: 'Why orbit data goes stale — and what to do about it', topic: 'atmosphere',
+    plain:
+      'A TLE (the standard orbit-data format) is a photograph of an orbit, not a live video. The ' +
+      'moment it’s taken, drag and space weather start changing the real orbit — about a ' +
+      'kilometer of error per day, faster during storms. The professional habit: as a close ' +
+      'approach gets within 24 hours, grab fresh data and re-run the screening.',
+    body:
+      'TLE accuracy degrades ~1 km/day in LEO (worse in storms). Operational response: re-screen ' +
+      'with fresh TLEs within 24 h of TCA; treat storm-period predictions with caution. OrbitWarden ' +
+      'flags stale TLEs and storm windows.',
+  },
+  {
+    chunk_id: 'sus-001', title: 'The Kessler syndrome', topic: 'sustainability',
+    plain:
+      'Low Earth orbit is like a highway with no street sweepers — everything dropped there ' +
+      'stays for years. The Kessler syndrome is the nightmare scenario: one collision makes ' +
+      'thousands of debris fragments, each fragment causes more collisions, and the cascade ' +
+      'snowballs until orbit becomes a shooting gallery no satellite can survive. Preventing even ' +
+      'a single collision is a favor to everyone who uses space.',
+    body:
+      'Kessler & Cour-Palais (1978): a collisional cascade rendering orbits unusable. With ' +
+      'mega-constellations, collision avoidance and end-of-life deorbit are essential; regulations ' +
+      '(FCC 5-year rule, ISO 24113) now require debris-mitigation plans.',
+  },
+  {
+    chunk_id: 'sus-002', title: 'Democratizing space situational awareness', topic: 'sustainability',
+    plain:
+      'Professional collision-warning services cost serious money and are built for companies ' +
+      'flying hundreds of satellites. But the teams who can least afford a mistake — ' +
+      'university CubeSat groups, tiny startups, operators in developing countries — are ' +
+      'exactly the ones with no protection. Orbit gets safer when everyone can afford to dodge.',
+    body:
+      'Commercial SSA (COMSPOC, LeoLabs, Slingshot) targets large constellations. OrbitWarden is ' +
+      'free and open-source: a two-person team gets the collision-avoidance desk of a space agency.',
+  },
+]
+
+/** Which sample chunks each Learn module shows when the API is offline. */
+export const SAMPLE_MODULE_CHUNKS: Record<string, string[]> = {
+  ca: ['ca-001', 'ca-002', 'geo-001'],
+  pc: ['pc-001', 'pc-002'],
+  man: ['man-001', 'man-003'],
+  weather: ['drag-001', 'drag-002'],
+  sus: ['sus-001', 'sus-002'],
 }

@@ -6,132 +6,138 @@ const MODULES = [
   {
     id: 'ca',
     title: 'What is a conjunction?',
-    query: 'conjunction assessment thresholds',
-    icon: '🛰️'
+    query: 'conjunction assessment thresholds screening geometry',
+    icon: '🛰️',
   },
   {
     id: 'pc',
-    title: 'Understanding Collision Probability',
-    query: 'collision probability Pc Alfriend Foster realism',
-    icon: '🎲'
+    title: 'Understanding collision probability',
+    query: 'collision probability Pc covariance realism dilution',
+    icon: '🎲',
   },
   {
     id: 'man',
     title: 'How to avoid a collision',
-    query: 'avoidance maneuver fuel optimal planning',
-    icon: '🚀'
+    query: 'avoidance maneuver planning propellant rocket equation',
+    icon: '🚀',
   },
   {
     id: 'weather',
     title: 'Why does space weather matter?',
-    query: 'atmospheric drag space weather TLE stale',
-    icon: '🌦️'
+    query: 'atmospheric drag space weather storm stale TLE',
+    icon: '🌦️',
   },
   {
     id: 'sus',
-    title: 'Kessler Syndrome & Sustainability',
-    query: 'Kessler syndrome sustainability democratizing',
-    icon: '🌍'
-  }
-]
+    title: 'Kessler syndrome & sustainability',
+    query: 'Kessler syndrome debris sustainability democratizing',
+    icon: '🌍',
+  },
+] as const
 
 export default function LearnPanel() {
-  const [activeModule, setActiveModule] = useState(MODULES[0].id)
+  const [activeModule, setActiveModule] = useState<string>(MODULES[0].id)
   const [chunks, setChunks] = useState<KnowledgeChunk[]>([])
   const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  const mod = MODULES.find(m => m.id === activeModule)!
+  const mod = MODULES.find((m) => m.id === activeModule)!
 
   useEffect(() => {
     let mounted = true
     setLoading(true)
-    fetchKnowledge(mod.query, 3).then((res) => {
+    setExpanded(new Set())
+    fetchKnowledge(mod.query, 3, mod.id).then((res) => {
       if (mounted) {
-        setChunks(res || [])
+        setChunks(res ?? [])
         setLoading(false)
       }
     })
-    return () => { mounted = false }
-  }, [mod.query])
+    return () => {
+      mounted = false
+    }
+  }, [mod.query, mod.id])
+
+  const toggle = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
 
   return (
-    <div className="panel learn-panel" style={{ height: 'calc(100vh - 120px)', display: 'flex', gap: '24px', flexDirection: 'row' }}>
-      
+    <div className="panel learn-panel">
       {/* Sidebar navigation */}
-      <aside style={{ width: '280px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <h2 className="eyebrow" style={{ marginBottom: '16px' }}>Education Modules</h2>
-        
-        {MODULES.map(m => (
+      <aside className="learn-side">
+        <h2 className="eyebrow" style={{ marginBottom: 16 }}>
+          Education modules
+        </h2>
+
+        {MODULES.map((m) => (
           <button
             key={m.id}
             onClick={() => setActiveModule(m.id)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '12px 16px',
-              background: activeModule === m.id ? 'var(--bg-surface-2)' : 'transparent',
-              border: '1px solid',
-              borderColor: activeModule === m.id ? 'var(--border)' : 'transparent',
-              borderRadius: '8px',
-              color: activeModule === m.id ? 'var(--fg)' : 'var(--fg-dim)',
-              textAlign: 'left',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              fontWeight: activeModule === m.id ? 500 : 400
-            }}
+            className={`learn-nav ${m.id === activeModule ? 'active' : ''}`}
           >
             <span style={{ fontSize: '1.2rem' }}>{m.icon}</span>
             {m.title}
           </button>
         ))}
-        
-        <div style={{ marginTop: 'auto', padding: '16px', background: 'var(--bg-surface-2)', borderRadius: '8px', border: '1px dashed var(--border)' }}>
-          <h3 className="eyebrow">Educator Resources</h3>
-          <p style={{ fontSize: '0.85rem', color: 'var(--fg-dim)', margin: '8px 0', lineHeight: 1.4 }}>
-            Teaching orbital mechanics? Download the OrbitWarden Educator Guide.
+
+        <div className="learn-edu">
+          <h3 className="eyebrow">Educator resources</h3>
+          <p>
+            Teaching orbital mechanics? The Educator Guide has classroom activities and a glossary —
+            no space background required.
           </p>
-          <a href="/EDUCATOR_GUIDE.md" target="_blank" className="btn" style={{ width: '100%', justifyContent: 'center' }}>
-            View Guide (PDF/MD)
+          <a
+            href="https://github.com/ranbeerrathore56-art/IBM_August_Challenge/blob/main/docs/EDUCATOR_GUIDE.md"
+            target="_blank"
+            rel="noreferrer"
+            className="btn"
+          >
+            View Educator Guide
           </a>
         </div>
       </aside>
 
       {/* Main content area */}
-      <main style={{ flex: 1, borderLeft: '1px solid var(--border)', paddingLeft: '32px', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+      <main className="learn-main">
+        <div className="learn-head">
           <span style={{ fontSize: '2rem' }}>{mod.icon}</span>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--fg)' }}>{mod.title}</h2>
+          <h2>{mod.title}</h2>
         </div>
-        
-        <p style={{ color: 'var(--fg-dim)', marginBottom: '32px', fontSize: '0.95rem', maxWidth: '600px', lineHeight: 1.6 }}>
-          These explanations are pulled directly from the OrbitWarden AI analyst's knowledge base. 
-          When you ask the analyst a question, it uses these exact chunks of domain knowledge to answer.
+
+        <p className="learn-note">
+          Plain language first — the full technical detail is one click away. Every explanation comes
+          from the same knowledge base the AI analyst cites when it answers your questions, so what
+          you read here is exactly what the analyst knows.
         </p>
 
         {loading ? (
-          <div className="mono" style={{ color: 'var(--fg-dim)' }}>Loading knowledge base chunks...</div>
+          <div className="mono" style={{ color: 'var(--fg-dim)' }}>
+            Loading knowledge base…
+          </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '800px' }}>
-            {chunks.map(chunk => (
-              <div key={chunk.chunk_id} style={{ 
-                background: 'var(--bg)', 
-                border: '1px solid var(--border)', 
-                borderRadius: '8px',
-                padding: '24px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                  <h3 style={{ fontSize: '1.1rem', color: 'var(--accent)', margin: 0 }}>{chunk.title}</h3>
-                  <span className="chip" style={{ opacity: 0.7 }}>{chunk.topic}</span>
+          <div className="learn-cards">
+            {chunks.map((chunk) => (
+              <article key={chunk.chunk_id} className="learn-card">
+                <div className="learn-card-head">
+                  <h3 className="learn-card-title">{chunk.title}</h3>
+                  <span className="chip" style={{ opacity: 0.7 }}>
+                    {chunk.topic}
+                  </span>
                 </div>
-                <div className="chunk-body" style={{ 
-                  color: 'var(--fg)', 
-                  lineHeight: 1.6, 
-                  fontSize: '0.95rem'
-                }}>
-                  {chunk.body}
-                </div>
-              </div>
+                <p className="learn-plain">{chunk.plain || chunk.body}</p>
+                {chunk.plain && (
+                  <>
+                    <button className="learn-deeper" onClick={() => toggle(chunk.chunk_id)}>
+                      {expanded.has(chunk.chunk_id) ? 'Hide technical detail ▴' : 'Go deeper (technical) ▾'}
+                    </button>
+                    {expanded.has(chunk.chunk_id) && <div className="learn-body">{chunk.body}</div>}
+                  </>
+                )}
+              </article>
             ))}
           </div>
         )}

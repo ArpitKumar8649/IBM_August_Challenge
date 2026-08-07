@@ -374,10 +374,10 @@ Real-World Impact.**
 - The Learn tab renders all modules.
 
 **Acceptance criteria:**
-- [ ] Every technical term in the UI has a plain-language explainer.
-- [ ] A "Learn" tab with education modules exists.
-- [ ] An educator's guide is available.
-- [ ] The explanations come from the real knowledge base (not hardcoded).
+- [x] Every technical term in the UI has a plain-language explainer. *(glossary.ts + Explainer.tsx, wired through Dashboard + BPlanePlot)*
+- [x] A "Learn" tab with education modules exists. *(LearnPanel.tsx — 5 modules, plain-first with "go deeper" toggle)*
+- [x] An educator's guide is available. *(docs/EDUCATOR_GUIDE.md — concepts, 3 classroom activities, glossary)*
+- [x] The explanations come from the real knowledge base (not hardcoded). *(every KB chunk now carries a `plain` summary; `GET /api/knowledge/learn` serves plain+body from the same retriever the analyst uses; offline fallback mirrors the KB; a pytest gate fails the build if any chunk lacks a plain summary)*
 
 **Effort:** ~2-3 days.
 

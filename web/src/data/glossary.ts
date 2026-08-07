@@ -60,6 +60,13 @@ export const GLOSSARY: Record<string, GlossaryTerm> = {
     longDef: 'Delta-v is the measure of impulse needed to change a satellite\'s orbit. It determines how much propellant is consumed. OrbitWarden calculates "fuel-optimal" maneuvers that achieve a safe miss distance using the minimum possible Δv.',
     knowledgeTopic: 'maneuver-planning'
   },
+  risk_score: {
+    id: 'risk_score',
+    term: 'Risk Score',
+    shortDef: 'A 0-100 ranking of how much a conjunction deserves attention.',
+    longDef: 'OrbitWarden\'s composite score combines how close the miss is, how fast the objects are closing, the encounter geometry, and whether the other object can maneuver. It deliberately does NOT rely on collision probability alone, because that number depends on uncertain assumptions — geometry and timing are more trustworthy. 60+ is red (act), 40-60 is amber (watch closely), below 40 is routine monitoring.',
+    knowledgeTopic: 'conjunction-assessment'
+  },
   storm_flag: {
     id: 'storm_flag',
     term: 'Storm Flag',

@@ -490,6 +490,32 @@ class AgentTools:
         retriever = get_retriever()
         return retriever.retrieve_and_format(query, k=k)
 
+    def query_knowledge_chunks(self, query: str, k: int = 3) -> dict:
+        """Retrieve knowledge chunks in full — for the Learn tab (not an agent tool).
+
+        Same retrieval as ``query_knowledge_base``, but returns each chunk's complete
+        content (plain-language summary + technical body) so the education UI can
+        render it directly. Explanations come from the same knowledge base the
+        analyst cites — never hardcoded UI text.
+        """
+        retriever = get_retriever()
+        results = retriever.retrieve(query, k=k)
+        return {
+            "query": query,
+            "chunks": [
+                {
+                    "chunk_id": r.chunk.chunk_id,
+                    "title": r.chunk.title,
+                    "topic": r.chunk.topic,
+                    "plain": r.chunk.plain,
+                    "body": r.chunk.body,
+                    "score": round(r.score, 3),
+                }
+                for r in results
+            ],
+            "count": len(results),
+        }
+
     # -- Phase A: live NASA / Space-Track / Open Notify data tools -----------
 
     def get_near_earth_objects(self, days: int = 7) -> dict:

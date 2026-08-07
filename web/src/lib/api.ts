@@ -18,7 +18,15 @@ import type {
   SystemHealth,
   KnowledgeChunk,
 } from '../types'
-import { SAMPLE_EVENTS, SAMPLE_SATELLITE, SAMPLE_WEATHER, SAMPLE_MANEUVERS, sampleBPlane } from '../data/sample'
+import {
+  SAMPLE_EVENTS,
+  SAMPLE_SATELLITE,
+  SAMPLE_WEATHER,
+  SAMPLE_MANEUVERS,
+  SAMPLE_KNOWLEDGE,
+  SAMPLE_MODULE_CHUNKS,
+  sampleBPlane,
+} from '../data/sample'
 
 /**
  * API client with graceful fallback to the bundled sample dataset, so the UI is
@@ -221,15 +229,28 @@ export async function* streamChat(message: string): AsyncGenerator<{
 // Phase 5.4 — Explainers & Knowledge Base
 // ============================================================
 
-export async function fetchKnowledge(query: string, k = 3): Promise<KnowledgeChunk[] | null> {
-  const data = await fetchRaw<{ chunks: KnowledgeChunk[] }>(`/api/knowledge?query=${encodeURIComponent(query)}&k=${k}`)
-  // Return the fetched chunks, or a static sample fallback if the API is offline
-  return data?.chunks ?? [
-    {
-      chunk_id: "sample-1",
-      title: "Fallback Knowledge",
-      topic: "offline",
-      body: "The backend is currently offline, so the real knowledge base cannot be queried. Start the FastAPI server to search the actual vector database."
-    }
-  ]
+/**
+ * Fetch knowledge-base chunks for the Learn tab.
+ *
+ * Live: vector-retrieved from the same KB the analyst cites (plain + technical text).
+ * Offline: falls back to the sample mirror — `moduleId` picks the curated chunk set
+ * (SAMPLE_MODULE_CHUNKS); a raw query matches topic keywords.
+ */
+export async function fetchKnowledge(query: string, k = 3, moduleId?: string): Promise<KnowledgeChunk[] | null> {
+  const data = await fetchRaw<{ chunks: KnowledgeChunk[] }>(
+    `/api/knowledge/learn?query=${encodeURIComponent(query)}&k=${k}`,
+  )
+  if (data?.chunks?.length) return data.chunks
+
+  if (moduleId && SAMPLE_MODULE_CHUNKS[moduleId]) {
+    const ids = SAMPLE_MODULE_CHUNKS[moduleId]
+    return ids.map((id) => SAMPLE_KNOWLEDGE.find((c) => c.chunk_id === id)!).filter(Boolean)
+  }
+  const words = query.toLowerCase().split(/\s+/).filter((w) => w.length > 3)
+  const scored = SAMPLE_KNOWLEDGE.map((c) => ({
+    c,
+    n: words.filter((w) => `${c.title} ${c.topic} ${c.plain}`.toLowerCase().includes(w)).length,
+  }))
+  const hits = scored.filter((s) => s.n > 0).sort((a, b) => b.n - a.n).map((s) => s.c)
+  return hits.length ? hits.slice(0, k) : SAMPLE_KNOWLEDGE.slice(0, k)
 }

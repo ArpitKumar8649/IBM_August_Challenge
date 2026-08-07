@@ -227,6 +227,11 @@ def create_app(ctx: ToolContext, client: WatsonxClient | None = None) -> FastAPI
     def knowledge(query: str, k: int = 3):
         return tools.query_knowledge_base(query, k)
 
+    @app.get("/api/knowledge/learn")
+    def knowledge_learn(query: str, k: int = 3):
+        """Full chunks (plain + technical) for the Learn tab — same KB the analyst cites."""
+        return tools.query_knowledge_chunks(query, k)
+
     # -- advanced astrodynamics ----------------------------------------------
 
     @app.get("/api/events/{event_id}/fuel-optimal")

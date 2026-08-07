@@ -62,6 +62,7 @@ class Retriever:
                     "title": r.chunk.title,
                     "topic": r.chunk.topic,
                     "score": round(r.score, 3),
+                    "plain": r.chunk.plain,
                 }
                 for r in results
             ],

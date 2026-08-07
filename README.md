@@ -12,7 +12,7 @@ Built for the **IBM AI Builders Challenge — August 2026 · Advance Space Explo
 [![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white)](https://react.dev)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![IBM Granite](https://img.shields.io/badge/IBM%20Granite-4-0f62fe?logo=ibm&logoColor=white)](https://github.com/ibm-granite-community)
-[![Tests](https://img.shields.io/badge/tests-374%20passing-4cd6a4)](#validation--evidence)
+[![Tests](https://img.shields.io/badge/tests-377%20passing-4cd6a4)](#validation--evidence)
 [![License](https://img.shields.io/badge/license-MIT-6c7896)](LICENSE)
 
 </div>
@@ -97,6 +97,11 @@ OrbitWarden is a web-based mission-ops decision-support tool. Give it a satellit
 - **Granite judgment agent** — a 30-tool strict contract; the model's *only* way to touch numbers.
 - **Retrieval-augmented analyst (RAG)** — a vector-database memory of space-domain knowledge (conjunction assessment, CDM/ODM standards, collision probability, maneuver planning, drag, validation, operator runbook, sustainability). The analyst answers with **grounded, cited expertise**, not generic prose — see [`docs/RAG_ANALYST.md`](docs/RAG_ANALYST.md).
 - **Output-validation layer** — every number the model writes in prose is checked against the engine's outputs; inventions are flagged. Maneuver cards are server-composed.
+- **Plain-language education layer** — every technical term in the dashboard (TCA, Pc, B-plane, Kp…) carries a `?` explainer, and a **Learn tab** teaches the domain in 10th-grade language, pulled from the *same knowledge base the analyst cites*: every chunk carries a plain-language summary beside the technical body (a test gate fails the build if one is missing). Plus a printable [educator's guide](docs/EDUCATOR_GUIDE.md) with classroom activities.
+- **Plain-language education layer** — every technical term in the dashboard (TCA, Pc, B-plane, Kp…) carries a `?` explainer, and a **Learn tab** teaches the domain in 10th-grade language, pulled from the *same knowledge base the analyst cites*: every chunk carries a plain-language summary beside the technical body (a test gate fails the build if one is missing). Plus a printable [educator's guide](docs/EDUCATOR_GUIDE.md) with classroom activities.
+- **Plain-language education layer** — every technical term in the dashboard (TCA, Pc, B-plane, Kp…) carries a `?` explainer, and a **Learn tab** teaches the domain in 10th-grade language, pulled from the *same knowledge base the analyst cites*: every chunk carries a plain-language summary beside the technical body (a test gate fails the build if one is missing). Plus a printable [educator's guide](docs/EDUCATOR_GUIDE.md) with classroom activities.
+- **Plain-language education layer** — every technical term in the dashboard (TCA, Pc, B-plane, Kp…) carries a `?` explainer, and a **Learn tab** teaches the domain in 10th-grade language, pulled from the *same knowledge base the analyst cites*: every KB chunk carries a plain-language summary alongside the technical body (a test gate fails the build if one is missing). Plus a printable [educator's guide](docs/EDUCATOR_GUIDE.md) with classroom activities.
+- **Plain-language education layer** — every technical term in the dashboard (TCA, Pc, B-plane, Kp…) carries a `?` explainer, and a **Learn tab** teaches the domain in 10th-grade language — pulled from the *same knowledge base the analyst cites* (each chunk carries a plain-language summary alongside the technical body, enforced by a test gate). Plus a printable [educator's guide](docs/EDUCATOR_GUIDE.md) with classroom activities.
 - **Mission-control dashboard** — live conjunction board with ticking TCA countdowns, RSW geometry, the **B-plane encounter diagram**, maneuver options, and the analyst chat.
 - **Validated against ground truth** — replayed against CelesTrak SOCRATES and real Space Surveillance Network CDMs (see [Validation](#-validation--evidence)).
 
@@ -345,7 +350,7 @@ Replaying **15 real conjunctions** that the operational Space Surveillance Netwo
 
 ### Test suite
 
-**374 tests passing** across the engine, agent, validator, API, and integration (golden-path) tests. CI runs `pytest` on every push.
+**377 tests passing** across the engine, agent, validator, API, and integration (golden-path) tests. CI runs `pytest` on every push.
 
 ---
 
@@ -408,7 +413,7 @@ IBM_August_Challenge/
 │       ├── viz/                #   BPlanePlot — the encounter-plane diagram
 │       ├── lib/                #   API client (with sample fallback)
 │       └── styles/             #   design system
-├── tests/                      # 374 tests
+├── tests/                      # 377 tests
 ├── docs/                       # results, reports, guides, operations runbook
 └── .github/workflows/ci.yml    # CI
 ```
@@ -450,6 +455,7 @@ IBM_August_Challenge/
 | `GET` | `/api/reentries?limit=N` | Predicted reentries (Space-Track decay) |
 | `GET` | `/api/literature?query=&rows=` | NASA ADS literature search |
 | `GET` | `/api/knowledge?query=&k=` | RAG knowledge-base retrieval (cited chunks) |
+| `GET` | `/api/knowledge/learn?query=&k=` | Full knowledge chunks — plain-language summary + technical body (Learn tab) |
 | `POST` | `/api/chat` | Analyst conversation (validated) |
 | `GET` | `/api/chat/events?message=…` | Analyst reasoning stream (SSE) |
 

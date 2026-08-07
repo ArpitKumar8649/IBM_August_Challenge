@@ -37,3 +37,4 @@ data/tle_snapshots/
 *lastagentwork*.txt
 *prevworks_chat*.txt
 chatlast.txt
+.aider*

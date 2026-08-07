@@ -32,6 +32,17 @@ def test_knowledge_base_nonempty():
         assert len(chunk.body) > 50
 
 
+def test_every_chunk_has_plain_language():
+    """The Learn tab shows `plain` first — every chunk must have a real one.
+
+    This is the §5.4 content gate: a chunk without a plain-language summary shows
+    raw technical prose to a 10th-grader, so we fail the build instead.
+    """
+    for chunk in get_knowledge_base():
+        assert len(chunk.plain) > 50, f"{chunk.chunk_id} missing a plain-language summary"
+        assert chunk.plain != chunk.body, f"{chunk.chunk_id}: plain must not duplicate body"
+
+
 def test_knowledge_base_unique_ids():
     kb = get_knowledge_base()
     ids = [c.chunk_id for c in kb]

@@ -196,7 +196,7 @@ export default function Dashboard() {
                     </div>
                     <div className="detail-risk">
                       <span className={`risk-big ${riskTone(selected.risk_score)}`}>{selected.risk_score.toFixed(1)}</span>
-                      <span className="risk-l">risk score</span>
+                      <span className="risk-l"><Explainer termId="risk_score">risk score</Explainer></span>
                     </div>
                   </div>
 

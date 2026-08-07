@@ -1,0 +1,505 @@
+Anthropic -> Cluster Protocol Proxy running on http://localhost:3000
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: false )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )
+
+[PROXY] -> Sending to Cluster Protocol (stream: true )

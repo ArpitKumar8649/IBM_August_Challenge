@@ -3,7 +3,10 @@
 A curated set of knowledge chunks covering conjunction assessment, CDM/ODM
 standards, collision probability, maneuver planning, atmospheric drag, OrbitWarden's
 validation results, an operator runbook, and the space-sustainability context.
-Each chunk has a title, body, and topic tag for retrieval and citation.
+Each chunk has a title, body, topic tag for retrieval and citation — and a
+`plain` field: a plain-language summary written for non-specialists (students,
+educators, journalists). The Learn tab shows `plain` first; the technical `body`
+is available on demand.
 
 This is the analyst's "memory" — when the operator asks a question, the RAG
 layer retrieves the most relevant chunks and the agent answers with grounded,
@@ -23,6 +26,7 @@ class KnowledgeChunk:
     title: str
     topic: str
     body: str
+    plain: str = ""  # plain-language summary for the Learn tab (10th-grade level)
 
     def as_text(self) -> str:
         """The text that gets embedded and shown to the agent."""
@@ -46,6 +50,16 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "use high-precision ephemerides; smaller operators rely on TLE-based "
             "screening (SGP4), which is fast but less precise."
         ),
+        plain=(
+            "A conjunction is a close call between two objects in orbit. Here's how "
+            "experts handle one: first, a computer checks your satellite against "
+            "every tracked object for the next few days and finds every near-miss. "
+            "For each one, it calculates exactly when they'll be closest (the TCA) "
+            "and how far apart they'll be (the miss distance). Then it estimates the "
+            "chance of an actual collision. Anything worrying gets a closer look, and "
+            "if the risk is real, the operator plans a small engine burn to move out "
+            "of the way."
+        ),
     ),
     KnowledgeChunk(
         chunk_id="ca-002",
@@ -61,6 +75,16 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "and whether the secondary can maneuver) rather than Pc alone, because Pc "
             "is sensitive to covariance assumptions while geometry and timing are robust."
         ),
+        plain=(
+            "Not every close call deserves panic. Operators draw an imaginary safety "
+            "bubble around their satellite — anything predicted to enter the bubble, "
+            "or with a collision chance above about 1-in-10,000, gets a full review; "
+            "everything else is just monitored. OrbitWarden doesn't rely on the "
+            "probability number alone, because that number depends on uncertain "
+            "assumptions. It ranks events mostly by solid facts: how close the miss "
+            "is, how fast the objects are closing, the geometry of the approach, and "
+            "whether the other object can even move out of the way."
+        ),
     ),
     KnowledgeChunk(
         chunk_id="cdm-001",
@@ -75,6 +99,14 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "conjunction crosses a screening threshold. OrbitWarden can generate and ingest "
             "CDMs, making it interoperable with operational SSA tooling."
         ),
+        plain=(
+            "A CDM is the official warning letter for a satellite close call. When the "
+            "military's Space Surveillance Network spots a dangerous approach, it sends "
+            "the satellite's owner a CDM containing the key facts: when the closest "
+            "approach happens, how far the miss is, how fast the objects are passing, "
+            "and the estimated collision chance. OrbitWarden speaks this same language, "
+            "so its alerts work with the real tools that space agencies use."
+        ),
     ),
     KnowledgeChunk(
         chunk_id="cdm-002",
@@ -87,6 +119,14 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "(semi-major axis, eccentricity, inclination, RAAN, argument of perigee, mean "
             "anomaly) in a standardized, self-describing format. OrbitWarden converts TLEs "
             "to OMMs for standards-compliant orbit sharing."
+        ),
+        plain=(
+            "To describe where a satellite flies, you need six numbers (the orbital "
+            "elements): the size and shape of the orbit, its tilt, its swivel, and "
+            "where the satellite is along the path. The old way of sharing these was "
+            "the TLE — two cryptic lines of text. The OMM is the modern, clearly-labeled "
+            "version of the same information. OrbitWarden can translate between the two, "
+            "so it works with both old and new systems."
         ),
     ),
     KnowledgeChunk(
@@ -101,6 +141,14 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "where HBR is the hard-body radius and m is the miss vector on the B-plane. It is "
             "valid when the encounter is fast relative to orbital curvature (true for LEO at "
             "~10-15 km/s)."
+        ),
+        plain=(
+            "We never know a satellite's position perfectly — there's always a fuzzy cloud "
+            "of uncertainty around it. The collision probability answers: 'given that "
+            "fuzziness, what are the odds the two objects actually overlap?' Picture a "
+            "dartboard face-on to the incoming object (that's the B-plane): we draw the "
+            "uncertainty cloud and the satellite's body on it, and ask what fraction of "
+            "the cloud overlaps the target. That fraction is the collision probability."
         ),
     ),
     KnowledgeChunk(
@@ -117,6 +165,15 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "probability density toward the hard body) before dilution dominates. Only for a "
             "miss at the origin is dilution monotonic."
         ),
+        plain=(
+            "A weird fact about collision probability: more uncertainty doesn't always mean "
+            "more risk. If two objects are predicted to miss by a comfortable margin, growing "
+            "the uncertainty cloud first *increases* the apparent risk (the cloud spreads "
+            "onto the target), then eventually *decreases* it (the probability thins out "
+            "over a huge area). This is called probability dilution. Because public orbit "
+            "data underestimates the true uncertainty, OrbitWarden deliberately inflates it "
+            "by a documented factor — better honest caution than false confidence."
+        ),
     ),
     KnowledgeChunk(
         chunk_id="man-001",
@@ -132,6 +189,15 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "The maneuver is verified by re-propagating and confirming the post-burn miss before "
             "execution."
         ),
+        plain=(
+            "Dodging a collision means firing the satellite's thrusters to arrive at the "
+            "meeting point earlier or later — like speeding up so someone crossing the road "
+            "passes behind you. Three trade-offs: burn early and it's cheap (a tiny nudge "
+            "has days to grow into a big miss), but the predictions are less certain; burn "
+            "in the direction that fixes the miss most efficiently; and remember every gram "
+            "of fuel burned is a day less of mission life. After planning a burn, we always "
+            "re-run the simulation to confirm it actually creates the safe miss."
+        ),
     ),
     KnowledgeChunk(
         chunk_id="man-002",
@@ -146,6 +212,14 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "magnitude follows from the target. OrbitWarden computes this CW-optimal burn and "
             "then verifies it with a high-fidelity numerical propagator (J2 + drag)."
         ),
+        plain=(
+            "Some burn directions buy you more safety per drop of fuel than others. There's a "
+            "standard set of equations (Clohessy-Wiltshire) describing how a nudge grows over "
+            "time in orbit — OrbitWarden uses them to solve for the single cheapest burn that "
+            "still achieves the miss distance you asked for. Then, because those equations are "
+            "an approximation, it double-checks the answer with the full high-fidelity physics "
+            "simulation before showing it to you."
+        ),
     ),
     KnowledgeChunk(
         chunk_id="man-003",
@@ -158,6 +232,14 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "(Isp ~ 50-70 s), a 10 cm/s burn costs only a few grams, while a 1 m/s burn costs "
             "hundreds of grams. Because propellant is finite and determines mission lifetime, "
             "operators track a fuel margin and prefer fuel-optimal maneuvers."
+        ),
+        plain=(
+            "Fuel on a satellite is like money in a bank account you can never refill — every "
+            "maneuver is a withdrawal. The rocket equation converts a velocity change (Δv) "
+            "into grams of propellant: for a CubeSat with simple cold-gas thrusters, a gentle "
+            "10 cm/s nudge costs a few grams, but a hefty 1 m/s burn costs hundreds. That's "
+            "why operators set fuel budgets and why OrbitWarden always searches for the "
+            "cheapest safe option first."
         ),
     ),
     KnowledgeChunk(
@@ -173,6 +255,14 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "storm) and increasing drag uncertainty. OrbitWarden models density with NRLMSISE-00 "
             "and uses this to make its storm flag quantitative."
         ),
+        plain=(
+            "Even at 400 km up, there's a whisper of atmosphere — and at orbital speeds it acts "
+            "like friction, constantly slowing satellites and pulling them down. The Sun controls "
+            "how thick that whisper is: during a geomagnetic storm the upper atmosphere heats up "
+            "and puffs out like a hot air balloon, and drag can jump by ~70%. That's why space "
+            "weather forecasts matter for collision avoidance — a storm literally changes where "
+            "every satellite will be tomorrow."
+        ),
     ),
     KnowledgeChunk(
         chunk_id="drag-002",
@@ -186,6 +276,14 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "operational response: re-screen with fresh TLEs as TCA approaches (within 24 h), and "
             "treat storm-period predictions with appropriate caution. OrbitWarden flags stale TLEs "
             "and storm windows, and recommends re-screening."
+        ),
+        plain=(
+            "A TLE is a photograph of an orbit, not a live video. The moment it's taken, drag and "
+            "space weather start changing the real orbit, so the photo ages — typically about a "
+            "kilometer of error per day, faster during storms. This is the biggest reason predicted "
+            "miss distances can be wrong. The professional habit: as the close approach gets within "
+            "24 hours, grab fresh data and re-run the screening. OrbitWarden flags old data and "
+            "storm windows so you know when a prediction deserves extra skepticism."
         ),
     ),
     KnowledgeChunk(
@@ -201,6 +299,14 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "a median miss-distance ratio of 1.07× and median TCA error of 0.09 s. Kilometer-scale "
             "conjunctions agree to ~20% with precision propagation; sub-km ones show the expected "
             "SGP4-vs-precision spread but are all detected with sub-second TCA."
+        ),
+        plain=(
+            "How do we know OrbitWarden's math is right? We tested it against reality. Its orbit "
+            "propagator matches the official reference answers to less than a millimeter. It "
+            "independently reproduced 9 of 10 real-world close approaches listed by CelesTrak, "
+            "with timing accurate to about a second. And when we replayed 15 actual collision "
+            "warnings issued by the US Space Surveillance Network, it detected 11 of them — the "
+            "4 misses were debris objects with no tracking history, not engine failures."
         ),
     ),
     KnowledgeChunk(
@@ -218,6 +324,14 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "human approval. (5) Verify — re-screen within 24 h of TCA to confirm the post-burn miss "
             "before and after execution."
         ),
+        plain=(
+            "When an alert arrives, operators follow a checklist, like pilots. 1) Confirm the facts: "
+            "when, how close, how fast — and is the other object a dead satellite that can't move? "
+            "2) Judge the risk: check the collision chance, the space-weather flag, and how fresh "
+            "the tracking data is. 3) If it's real, pick a dodge that fits your fuel budget. "
+            "4) A human approves it — the AI never acts alone. 5) Afterward, re-check that the "
+            "maneuver actually worked."
+        ),
     ),
     KnowledgeChunk(
         chunk_id="ops-002",
@@ -230,6 +344,13 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "'approve-to-execute' (act only with explicit human approval). Each step up the ladder "
             "requires more verification and trust. For collision avoidance — a safety-critical, "
             "irreversible action — the human remains in the loop."
+        ),
+        plain=(
+            "OrbitWarden's rule: the physics engine does the math, the AI does the thinking, and a "
+            "human makes the final call. The AI can show you data, rank threats, and draft a maneuver — "
+            "but it can never fire a thruster. There's a ladder of trust: informing is easy, "
+            "recommending needs more proof, and acting requires a human signature. For an irreversible, "
+            "safety-critical decision like a collision-avoidance burn, a person always stays in the loop."
         ),
     ),
     KnowledgeChunk(
@@ -245,6 +366,15 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "debris-mitigation plans. OrbitWarden supports sustainability not only by preventing "
             "collisions but by planning responsible deorbit, helping keep orbit open for everyone."
         ),
+        plain=(
+            "Low Earth orbit is like a highway with no street sweepers — everything dropped there "
+            "stays for years. The Kessler syndrome is the nightmare scenario: one collision makes "
+            "thousands of debris fragments, each fragment causes more collisions, and the cascade "
+            "snowballs until orbit becomes a shooting gallery no satellite can survive. Preventing "
+            "even a single collision isn't just about protecting your own satellite — it's a favor "
+            "to everyone who uses space. That's why dodging debris and deorbiting dead satellites "
+            "matter."
+        ),
     ),
     KnowledgeChunk(
         chunk_id="sus-002",
@@ -257,6 +387,14 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "the most exposed and least equipped. OrbitWarden is free and open-source, giving any "
             "operator the collision-avoidance capability of a major space agency. Democratizing SSA "
             "makes orbit safer for everyone — collision avoidance shouldn't be a luxury."
+        ),
+        plain=(
+            "Professional collision-warning services cost serious money and are built for companies "
+            "flying hundreds of satellites. But the teams who can least afford a mistake — university "
+            "CubeSat groups, tiny startups, operators in developing countries — are exactly the ones "
+            "with no protection. OrbitWarden is free and open-source: it hands a two-person team the "
+            "same collision-avoidance desk a space agency has. Orbit gets safer when everyone can "
+            "afford to dodge."
         ),
     ),
     KnowledgeChunk(
@@ -271,6 +409,14 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "radial-dominated approaches are rarer and harder to predict. The B-plane (perpendicular to "
             "the relative velocity) is where collision probability is computed."
         ),
+        plain=(
+            "To describe a near-miss, orbit experts use directions relative to your satellite: Radial "
+            "(up/down toward Earth), in-track (ahead/behind along your path), and cross-track (sideways). "
+            "An in-track miss is like a car passing you on the highway — common and predictable. A "
+            "radial miss is like something dropping past you from above — rarer and trickier to predict. "
+            "Knowing the direction of the miss tells the operator which way to burn for the cheapest "
+            "escape."
+        ),
     ),
     KnowledgeChunk(
         chunk_id="ibm-001",
@@ -284,6 +430,13 @@ KNOWLEDGE_BASE: list[KnowledgeChunk] = [
             "analyst uses watsonx embeddings with a vector database (an encouraged technology). The "
             "deterministic astrodynamics engine (SGP4, numerical propagation, NRLMSISE-00 drag) "
             "computes every number; the AI judges; the human decides."
+        ),
+        plain=(
+            "OrbitWarden runs on IBM's AI stack: the Granite language model (on watsonx.ai) is the "
+            "analyst's brain, IBM Bob was the AI assistant used to build the software, and IBM Cloud "
+            "hosts the deployed service. The key design rule: Granite never calculates anything "
+            "itself — it asks the physics engine for numbers through a controlled set of tools, then "
+            "explains what they mean. That separation is what keeps the AI honest."
         ),
     ),
 ]
