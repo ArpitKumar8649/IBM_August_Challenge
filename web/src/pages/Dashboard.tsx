@@ -10,6 +10,7 @@ import SolarSystemPanel from '../panels/SolarSystemPanel'
 import SystemHealthPanel from '../panels/SystemHealthPanel'
 import Explainer from '../components/Explainer'
 import LearnPanel from '../panels/LearnPanel'
+import SkyViewPanel from '../panels/SkyViewPanel'
 import BPlanePlot from '../viz/BPlanePlot'
 import '../styles/dashboard.css'
 
@@ -18,7 +19,7 @@ interface ChatMsg {
   text: string
 }
 
-type Tab = 'mission' | 'globe' | 'weather' | 'earth' | 'discovery' | 'solar' | 'health' | 'learn'
+type Tab = 'mission' | 'globe' | 'weather' | 'earth' | 'sky' | 'discovery' | 'solar' | 'health' | 'learn'
 
 /**
  * The 3D globe ships as its own lazy chunk (Cesium is ~3 MB), loaded only when
@@ -39,6 +40,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'globe', label: '3D View' },
   { id: 'weather', label: 'Space Weather' },
   { id: 'earth', label: 'Earth Observation' },
+  { id: 'sky', label: "Tonight's Sky" },
   { id: 'discovery', label: 'Discovery' },
   { id: 'solar', label: 'Solar System' },
   { id: 'health', label: 'System Health' },
@@ -317,7 +319,7 @@ export default function Dashboard() {
               <section className="analyst panel">
                 <div className="analyst-head">
                   <span className="chat-dot" /> OrbitWarden Analyst
-                  <span className="chip good" style={{ marginLeft: 'auto' }}>Granite · 30 tools · validated</span>
+                  <span className="chip good" style={{ marginLeft: 'auto' }}>Granite · 31 tools · validated</span>
                 </div>
                 <div className="analyst-body">
                   {chat.map((m, i) => (
@@ -363,6 +365,7 @@ export default function Dashboard() {
         )}
         {tab === 'weather' && <div className="tab-pad"><SpaceWeatherPanel /></div>}
         {tab === 'earth' && <div className="tab-pad"><EarthObservationPanel /></div>}
+        {tab === 'sky' && <div className="tab-pad"><SkyViewPanel /></div>}
         {tab === 'discovery' && <div className="tab-pad"><DiscoveryPanel /></div>}
         {tab === 'solar' && <div className="tab-pad"><SolarSystemPanel /></div>}
         {tab === 'health' && <div className="tab-pad"><SystemHealthPanel /></div>}

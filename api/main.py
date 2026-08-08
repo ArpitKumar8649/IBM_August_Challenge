@@ -11,6 +11,8 @@ The API surfaces all 29 agent tools as REST endpoints, organized by capability:
     GET  /api/events/{id}/bplane
   Space weather (Phase B):
     GET  /api/space-weather · /api/space-weather/detailed · /api/space-weather/alerts
+  Public engagement (Phase 5.3):
+    GET  /api/passes
   Earth observation (Phase C):
     GET  /api/ground-track · /api/imagery · /api/disaster
   Precision ephemerides (Phase D):
@@ -270,6 +272,29 @@ def create_app(ctx: ToolContext, client: WatsonxClient | None = None) -> FastAPI
         """
         try:
             return tools.get_conjunction_czml(event_id, maneuver_kind, window_min)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+
+    # -- Phase 5.3: what's passing over me? ----------------------------------
+
+    @app.get("/api/passes")
+    def visible_passes(
+        lat: float,
+        lon: float,
+        date: str | None = None,
+        limit: int = 12,
+        min_elevation: float = 10.0,
+    ):
+        """Tonight's naked-eye satellite passes for a location (5.3).
+
+        The public-facing "what's passing over me?" — enter a location, see which
+        famous satellites (ISS, Tiangong, Hubble…) pass overhead tonight, with
+        times, compass directions, brightness, and plain-language instructions.
+        Always uses fresh CelesTrak elements (no stale-TLE fallback); answers
+        available:false with a note when the catalog is unreachable.
+        """
+        try:
+            return tools.get_visible_passes(lat, lon, date, limit, min_elevation)
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc))
 

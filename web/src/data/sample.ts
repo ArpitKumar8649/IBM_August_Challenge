@@ -7,6 +7,7 @@ import type {
   CovarianceEllipse,
   SigmaContour,
   KnowledgeChunk,
+  PassesResponse,
 } from '../types'
 
 /**
@@ -364,4 +365,114 @@ export const SAMPLE_MODULE_CHUNKS: Record<string, string[]> = {
   man: ['man-001', 'man-003'],
   weather: ['drag-001', 'drag-002'],
   sus: ['sus-001', 'sus-002'],
+}
+
+// ============================================================
+// 5.3 — "What's passing over me?" — offline Tonight's Sky mirror
+// ============================================================
+
+interface SamplePassSeed {
+  name: string
+  norad_id: number
+  /** Local wall-clock hour:minute the pass starts. */
+  at: [number, number]
+  /** Pass duration in minutes. */
+  minutes: number
+  max_elevation_deg: number
+  from: [number, string]
+  apex: [number, string]
+  to: [number, string]
+  magnitude: number
+  blurb: string
+}
+
+const SAMPLE_PASS_SEEDS: SamplePassSeed[] = [
+  {
+    name: 'ISS (ZARYA)', norad_id: 25544, at: [21, 42], minutes: 5, max_elevation_deg: 63,
+    from: [312, 'NW'], apex: [225, 'SW'], to: [133, 'SE'], magnitude: -2.8,
+    blurb: 'The International Space Station — the largest structure humanity has ever put in orbit.',
+  },
+  {
+    name: 'TIANGONG', norad_id: 48274, at: [22, 15], minutes: 4, max_elevation_deg: 47,
+    from: [274, 'W'], apex: [205, 'SSW'], to: [152, 'SSE'], magnitude: -1.5,
+    blurb: 'Tiangong, China\'s space station — the second station visible to the naked eye.',
+  },
+  {
+    name: 'HUBBLE SPACE TELESCOPE', norad_id: 20580, at: [23, 40], minutes: 3, max_elevation_deg: 38,
+    from: [198, 'SSW'], apex: [140, 'SE'], to: [78, 'ENE'], magnitude: 2.1,
+    blurb: 'The Hubble Space Telescope — the orbiting observatory that rewrote astronomy.',
+  },
+  {
+    name: 'LANDSAT 8', norad_id: 39084, at: [20, 8], minutes: 3, max_elevation_deg: 26,
+    from: [342, 'NNW'], apex: [288, 'WNW'], to: [232, 'SW'], magnitude: 3.3,
+    blurb: 'Landsat 8 — the land-monitoring mission that photographs Earth\'s surface.',
+  },
+]
+
+/**
+ * A believable "tonight" for a location, for when the API is unreachable.
+ * Anchored to the location's local evening so the demo reads as tonight
+ * wherever it's opened; the panel labels it SAMPLE, never real predictions.
+ */
+export function samplePasses(latitude: number, longitude: number, now = new Date()): PassesResponse {
+  const offsetMs = (longitude / 15) * 3_600_000
+  const local = new Date(now.getTime() + offsetMs)
+  const date = local.toISOString().slice(0, 10)
+  const localAt = (h: number, m: number): string => {
+    const wall = new Date(
+      Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate(), h, m),
+    )
+    return new Date(wall.getTime() - offsetMs).toISOString().replace(/\.\d{3}Z$/, 'Z')
+  }
+  const clock = (h: number, m: number): string => {
+    const h12 = h % 12 === 0 ? 12 : h % 12
+    return `${h12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
+  }
+  const brightness = (mag: number): string =>
+    mag < 0
+      ? 'extremely bright — brighter than any star'
+      : mag < 2
+        ? 'very bright — easy to spot'
+        : 'bright — visible from the city'
+
+  const passes = SAMPLE_PASS_SEEDS.map((s) => {
+    const start = localAt(s.at[0], s.at[1])
+    const apex = localAt(s.at[0], s.at[1] + Math.round(s.minutes / 2))
+    const end = localAt(s.at[0], s.at[1] + s.minutes)
+    const short = s.name.split('(')[0].trim()
+    return {
+      norad_id: s.norad_id,
+      name: s.name,
+      start,
+      max_elevation_time: apex,
+      end,
+      max_elevation_deg: s.max_elevation_deg,
+      elevation_start_deg: 10,
+      elevation_end_deg: 10,
+      azimuth_start_deg: s.from[0],
+      azimuth_apex_deg: s.apex[0],
+      azimuth_end_deg: s.to[0],
+      direction_from: s.from[1],
+      direction_to: s.to[1],
+      range_km_at_max: 700,
+      magnitude: s.magnitude,
+      brightness_label: brightness(s.magnitude),
+      object_blurb: s.blurb,
+      look_instruction: `Look ${s.from[1]} (${s.from[0]}°) at ${clock(s.at[0], s.at[1])} — ${short} will pass ${s.max_elevation_deg >= 60 ? 'high overhead' : 'about halfway up the sky'}.`,
+    }
+  })
+  // Earliest first — same as the engine.
+  passes.sort((a, b) => a.start.localeCompare(b.start))
+
+  return {
+    available: true,
+    latitude,
+    longitude,
+    date,
+    night_start: localAt(19, 0),
+    night_end: localAt(5, 0),
+    max_tle_age_days: 0.4,
+    passes,
+    note: 'Sample passes — start the API for predictions from live orbital elements.',
+  }
 }

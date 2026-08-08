@@ -52,12 +52,12 @@ this *understandable* without dumbing it down.
 | RSW geometry bars | In the event detail (radial/in-track/cross-track) |
 | Validated color palette | Color-blind-safe (dataviz skill) |
 | RAG knowledge base | 18 space-domain chunks — these ARE the explainers for 5.4 |
-| All 30 tools as API endpoints | The data layer is complete (`get_bplane` added by 5.2) |
+| All 31 tools as API endpoints | The data layer is complete (`get_bplane` added by 5.2, `get_visible_passes` by 5.3) |
 
-**What's missing (this plan):** the public "what's over me" feature (5.3) and
-immersive/sonification (5.5). **Delivered:** 5.1 (CesiumJS 3D globe —
-`PHASE5_1_GLOBE_PLAN.md`, phases A–G), 5.2 (B-plane diagram), 5.4 (plain-language
-education).
+**What's missing (this plan):** immersive/sonification (5.5, stretch).
+**Delivered:** 5.1 (CesiumJS 3D globe — `PHASE5_1_GLOBE_PLAN.md`, phases A–G),
+5.2 (B-plane diagram), 5.3 ("what's passing over me?" — `PHASE5_3_SKY_PLAN.md`),
+5.4 (plain-language education).
 
 ---
 
@@ -266,7 +266,17 @@ wired at `web/src/pages/Dashboard.tsx`), beyond the plan above:
 
 ---
 
-### 5.3 "What's passing over me?" public engagement feature 🟢
+### 5.3 "What's passing over me?" public engagement feature ✅ SHIPPED
+
+> **Status:** delivered in full — the visible-pass engine (`engine/viz/passes.py`:
+> analytical Sun, topocentric ENU, cylindrical-shadow sunlit test, pass
+> segmentation, brightness estimate), `GET /api/passes` (also an agent tool, so
+> the analyst answers "when can I see the ISS from Bengaluru?" with computed
+> passes), and the "Tonight's Sky" tab (`SkyViewPanel` + polar `SkyChart`) with
+> presets / geolocation / manual coordinates, plain-language instructions, and
+> honest error/empty/sample states. 40 backend tests (incl. a deterministic
+> ISS-pass construction) + 9 vitest specs. See
+> [`docs/PHASE5_3_SKY_PLAN.md`](PHASE5_3_SKY_PLAN.md) (phases A–F).
 
 **What:** a public-facing feature: enter your location (or geolocate), see
 satellites passing overhead *tonight*, with plain-language explanations. "That
@@ -317,10 +327,10 @@ accessible, delightful, and shareable — the feature that makes a non-specialis
 - The sky chart renders the pass arc correctly.
 
 **Acceptance criteria:**
-- [ ] Enter a location → see tonight's visible satellites with times/directions.
-- [ ] The ISS appears with a plain-language "look here" instruction.
-- [ ] The sky chart shows the pass arc.
-- [ ] Geolocation works (browser API).
+- [x] Enter a location → see tonight's visible satellites with times/directions.
+- [x] The ISS appears with a plain-language "look here" instruction.
+- [x] The sky chart shows the pass arc.
+- [x] Geolocation works (browser API).
 
 **Effort:** ~3 days.
 
@@ -528,7 +538,7 @@ users. A real product is accessible. → **Real-World Impact, Challenge Fit.**
 - **Sonification** as a first-class alternative to visual charts.
 
 ### Data flow
-- All visualizations consume the existing API endpoints (30 tools). New endpoints
+- All visualizations consume the existing API endpoints (31 tools). New endpoints
   (`/api/orbits/czml`, `/api/events/{id}/bplane` ✅, `/api/passes`, `/api/glossary`)
   follow the same pattern.
 - The RAG knowledge base feeds the education/explainer content (5.4).

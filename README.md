@@ -94,12 +94,13 @@ OrbitWarden is a web-based mission-ops decision-support tool. Give it a satellit
 - **RSW geometry classification** — in-track / radial / cross-track, with maneuverability awareness (debris and rocket bodies can't move — *you* must).
 - **Storm-aware re-screening** — NOAA SWPC + NASA DONKI feed a flag when geomagnetic activity inflates TLE uncertainty near a conjunction's TCA.
 - **Avoidance-maneuver search** — shoot-and-score over a grid of burns, using **numerical two-body propagation** (not linearized approximations), with rocket-equation propellant costing and three curated options (cheapest-safe / nominal / conservative).
-- **Granite judgment agent** — a 30-tool strict contract; the model's *only* way to touch numbers.
+- **Granite judgment agent** — a 31-tool strict contract; the model's *only* way to touch numbers.
 - **Retrieval-augmented analyst (RAG)** — a vector-database memory of space-domain knowledge (conjunction assessment, CDM/ODM standards, collision probability, maneuver planning, drag, validation, operator runbook, sustainability). The analyst answers with **grounded, cited expertise**, not generic prose — see [`docs/RAG_ANALYST.md`](docs/RAG_ANALYST.md).
 - **Output-validation layer** — every number the model writes in prose is checked against the engine's outputs; inventions are flagged. Maneuver cards are server-composed.
 - **Plain-language education layer** — every technical term in the dashboard (TCA, Pc, B-plane, Kp…) carries a `?` explainer, and a **Learn tab** teaches the domain in 10th-grade language, pulled from the *same knowledge base the analyst cites*: every chunk carries a plain-language summary beside the technical body (a test gate fails the build if one is missing). Plus a printable [educator's guide](docs/EDUCATOR_GUIDE.md) with classroom activities.
 - **Mission-control dashboard** — live conjunction board with ticking TCA countdowns, RSW geometry, the **B-plane encounter diagram**, maneuver options, and the analyst chat.
 - **3D conjunction globe (5.1)** — a CesiumJS "3D View" tab (the same engine behind NASA Eyes) renders the encounter in space: both orbits animate on a scrubbable timeline to the TCA moment, with the miss line, relative-velocity arrow, covariance ellipsoid, and a toggleable maneuver pre/post-burn track. The scene is **engine-composed CZML** — the browser draws only what the physics plane computed — so the globe, the B-plane figure, and the event card can never disagree. Lazy-loaded, so the ~3 MB Cesium runtime never touches users who don't open the tab.
+- **"Tonight's Sky" (5.3) — what's passing over me?** — the public face of the platform: enter a location (preset cities, browser geolocation, or coordinates) and see which famous satellites — the ISS, Tiangong, Hubble — pass overhead *tonight*, with times, compass directions, a brightness estimate, and a plain-language *"Look northwest at 9:42 PM — the ISS will pass high overhead."* on a polar sky chart. The engine (`engine/viz/passes.py`) finds passes where all three visibility conditions hold — above the horizon, the ground dark (Sun > 6° below), the satellite still sunlit — from **fresh orbital elements fetched at request time** (deliberately no stale fallback: a family outside at the wrong hour is worse than "try again later"). Also an agent tool, so the analyst answers "when can I see the ISS from Bengaluru?" with computed passes.
 - **Validated against ground truth** — replayed against CelesTrak SOCRATES and real Space Surveillance Network CDMs (see [Validation](#-validation--evidence)).
 
 ### 🔬 Advanced astrodynamics (NASA-level physics)
@@ -170,7 +171,7 @@ Agent contract at the end of Phase E: **29 tools** (`get_recent_transients`, `ge
 
 OrbitWarden is a **deployed service**, not a one-off script — see [`docs/PHASE_F_PLATFORM.md`](docs/PHASE_F_PLATFORM.md) and the [operations runbook](docs/OPERATIONS.md):
 
-- **Full API surface** — all 30 tools exposed as REST endpoints (33 routes).
+- **Full API surface** — all 31 tools exposed as REST endpoints (34 routes).
 - **Space-situation dashboard** — a 7-tab frontend: Mission Control, **3D View (the CesiumJS globe)**, Space Weather, Earth Observation (ground-track map + Sentinel-2 imagery + NEO watch), Discovery (transients + exoplanets + Gaia), Solar System (planet positions + live ISS), and System Health.
 - **Operational health monitoring** — `/api/health/full` reports database + every data source's freshness (ok / stale / unknown) and an overall status.
 - **Scheduled batch service** — the screening runs on a schedule and survives failures (never crashes unattended).
@@ -400,7 +401,7 @@ IBM_August_Challenge/
 │   ├── vectorstore.py          #   cosine-similarity vector store (pgvector-ready)
 │   └── rag.py                  #   retrieval-augmented generation
 ├── api/                        # FastAPI layer (REST + SSE)
-│   ├── main.py                 #   all 30 tools as REST endpoints (33 routes)
+│   ├── main.py                 #   all 31 tools as REST endpoints (34 routes)
 │   └── health.py               #   operational health monitoring (per-source)
 ├── batch/                      # scheduled screening service (survives failures)
 ├── validation/                 # SOCRATES + CDM validation harnesses

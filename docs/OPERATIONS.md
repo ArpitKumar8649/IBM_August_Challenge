@@ -23,7 +23,7 @@
 ```
 
 The batch writes the latest screening run to SQLite; the API reads it and serves
-all 30 tools as REST endpoints; the frontend proxies to the API.
+all 31 tools as REST endpoints; the frontend proxies to the API.
 
 ---
 

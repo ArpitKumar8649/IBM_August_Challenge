@@ -19,6 +19,7 @@ import type {
   KnowledgeChunk,
   ConjunctionCzml,
   ManeuverKind,
+  PassesResponse,
 } from '../types'
 import {
   SAMPLE_EVENTS,
@@ -28,6 +29,7 @@ import {
   SAMPLE_KNOWLEDGE,
   SAMPLE_MODULE_CHUNKS,
   sampleBPlane,
+  samplePasses,
 } from '../data/sample'
 
 /**
@@ -224,6 +226,66 @@ export async function fetchConjunctionCzml(
   } finally {
     clearTimeout(timeout)
     signal?.removeEventListener('abort', onExternalAbort)
+  }
+}
+
+// ============================================================
+// 5.3 — "What's passing over me?" (Tonight's Sky)
+// ============================================================
+
+const PASSES_TIMEOUT_MS = 25000 // the engine fetches fresh TLEs on the first call of the day (stations + active groups)
+
+/**
+ * Fetch tonight's visible satellite passes for a location.
+ *
+ * Layered honesty, matching the CZML convention:
+ *  - Reachable engine → its envelope, `live: true`, whatever `available` says.
+ *    available:false carries the engine's own note ("could not fetch fresh
+ *    orbital elements…") and the panel shows that — the backend deliberately
+ *    never predicts from stale TLEs.
+ *  - A reachable engine answering an HTTP error (4xx/5xx) is also surfaced
+ *    (its `detail`, or `engine error (HTTP n)`) — never masked by the sample.
+ *  - Only a truly unreachable engine (network failure / timeout) falls back to
+ *    a sample "tonight" mirror, `live: false`, clearly labelled SAMPLE.
+ */
+export async function fetchPasses(
+  lat: number,
+  lon: number,
+  date?: string,
+): Promise<{ data: PassesResponse; live: boolean }> {
+  const params = new URLSearchParams({ lat: String(lat), lon: String(lon) })
+  if (date) params.set('date', date)
+  const url = `/api/passes?${params.toString()}`
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(PASSES_TIMEOUT_MS) })
+    if (!res.ok) {
+      // FastAPI answers 4xx/5xx with {"detail": "…"} — surface the message.
+      let detail: string | null = null
+      try {
+        const errBody = (await res.json()) as { detail?: unknown }
+        if (typeof errBody?.detail === 'string' && errBody.detail) detail = errBody.detail
+      } catch {
+        /* non-JSON error body — fall back to the HTTP status */
+      }
+      return {
+        data: {
+          available: false,
+          latitude: lat,
+          longitude: lon,
+          date: date ?? '',
+          night_start: null,
+          night_end: null,
+          max_tle_age_days: 0,
+          passes: [],
+          note: detail ?? `engine error (HTTP ${res.status})`,
+        },
+        live: true,
+      }
+    }
+    const body = (await res.json()) as PassesResponse
+    return { data: body, live: true }
+  } catch {
+    return { data: samplePasses(lat, lon), live: false }
   }
 }
 

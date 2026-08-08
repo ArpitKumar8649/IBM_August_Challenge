@@ -563,6 +563,72 @@ class AgentTools:
             "document": doc,
         }
 
+    # -- Phase 5.3: what's passing over me? ---------------------------------
+
+    def get_visible_passes(
+        self,
+        lat: float,
+        lon: float,
+        date: str | None = None,
+        limit: int = 12,
+        min_elevation: float = 10.0,
+    ) -> dict:
+        """Tonight's naked-eye satellite passes for a location (Phase 5.3).
+
+        Answers "when can I see the ISS from here?" with engine-computed passes
+        — the public-facing counterpart to the operator dashboards. Always
+        fetches FRESH orbital elements from CelesTrak (24 h disk cache) with
+        deliberately NO fallback: predicting "look up at 9:42 PM" from stale
+        TLEs would send someone outside at the wrong hour. Returns
+        available:false with a plain-language note when the catalog can't be
+        fetched or the requested date is outside the reliable window.
+
+        Each pass carries start/apex/end times, max elevation, the compass
+        direction at start and end, a brightness estimate, and a plain-language
+        "look northwest at 9:42 PM" instruction.
+        """
+        if not (-90.0 <= lat <= 90.0):
+            raise ValueError(f"lat {lat} out of range (-90..90)")
+        if not (-180.0 <= lon <= 180.0):
+            raise ValueError(f"lon {lon} out of range (-180..180)")
+
+        from engine.viz.passes import compute_passes_for_location, fetch_visible_catalog
+
+        try:
+            catalog, missing = fetch_visible_catalog()
+        except Exception as exc:  # noqa: BLE001 — honest failure, not a crash
+            return {
+                "available": False,
+                "latitude": lat,
+                "longitude": lon,
+                "date": date,
+                "passes": [],
+                "note": f"Could not fetch fresh orbital elements right now — {exc}",
+            }
+
+        resp = compute_passes_for_location(
+            catalog, lat, lon, date=date, limit=limit, min_elevation=min_elevation
+        )
+        payload = resp.model_dump(mode="json")
+        # ISO timestamps with 'Z' — the envelope convention the frontend expects.
+        for p in payload["passes"]:
+            p["start"] = p["start"].replace("+00:00", "Z")
+            p["max_elevation_time"] = p["max_elevation_time"].replace("+00:00", "Z")
+            p["end"] = p["end"].replace("+00:00", "Z")
+        if payload.get("night_start"):
+            payload["night_start"] = payload["night_start"].replace("+00:00", "Z")
+            payload["night_end"] = (
+                payload["night_end"].replace("+00:00", "Z")
+                if payload.get("night_end")
+                else None
+            )
+        if missing:
+            payload["note"] = (
+                payload["note"]
+                + f" {len(missing)} famous object(s) had no fresh TLE today and were skipped."
+            )
+        return payload
+
     def query_knowledge_base(self, query: str, k: int = 3) -> dict:
         """Retrieve relevant space-domain knowledge for a question (RAG).
 
@@ -1176,6 +1242,7 @@ class AgentTools:
         "get_space_weather_alerts",
         "get_drag_uncertainty",
         "get_ground_track",
+        "get_visible_passes",
         "get_imagery_under_satellite",
         "get_disaster_data",
         "get_planet_position",
@@ -1499,6 +1566,24 @@ TOOL_SCHEMAS = [
                     "norad_id": {"type": "integer", "description": "satellite NORAD id (default: primary)"},
                     "minutes": {"type": "integer", "description": "track duration in minutes (default 90)"},
                 },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_visible_passes",
+            "description": "Tonight's naked-eye satellite passes for a location — 'when can I see the ISS from Bengaluru tonight?' Returns famous satellites (ISS, Tiangong, Hubble…) passing overhead with start/apex/end times, max elevation, compass directions, brightness, and a plain-language 'look northwest at 9:42 PM' instruction. Uses fresh orbital elements; fails honestly when the catalog can't be fetched.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "lat": {"type": "number", "description": "observer latitude (deg, -90..90)"},
+                    "lon": {"type": "number", "description": "observer longitude (deg, -180..180)"},
+                    "date": {"type": "string", "description": "observer-local date YYYY-MM-DD (default: today)"},
+                    "limit": {"type": "integer", "description": "max passes to return (default 12)"},
+                    "min_elevation": {"type": "number", "description": "horizon cutoff in deg (default 10)"},
+                },
+                "required": ["lat", "lon"],
             },
         },
     },

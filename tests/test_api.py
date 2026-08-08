@@ -187,6 +187,53 @@ def test_event_czml_not_found(client):
     assert r.status_code == 404
 
 
+def test_passes_endpoint(client, monkeypatch):
+    """GET /api/passes returns the tonight's-sky envelope for a location.
+
+    The tool always fetches fresh TLEs; inject a fixture catalog so the test
+    stays offline. The deterministic 'ISS produces a visible pass' assertion
+    lives in tests/test_passes.py — here the endpoint contract is the point.
+    """
+    iss = _tle(25544, "ISS (ZARYA)", ISS_L2)
+    monkeypatch.setattr(
+        "engine.viz.passes.fetch_visible_catalog", lambda: ([iss], [])
+    )
+    r = client.get("/api/passes?lat=12.97&lon=77.59")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["available"] is True
+    assert body["latitude"] == 12.97
+    assert body["date"]
+    assert body["note"]
+    starts = [p["start"] for p in body["passes"]]
+    assert starts == sorted(starts)
+    for p in body["passes"]:
+        assert p["start"].endswith("Z")
+        assert p["max_elevation_deg"] >= 10.0
+        assert p["look_instruction"]
+        assert p["brightness_label"]
+
+
+def test_passes_fetch_failure_is_honest(client, monkeypatch):
+    """The no-fallback design: a CelesTrak outage answers available:false with
+    a note — never stale passes, never a crash."""
+    def _boom():
+        raise RuntimeError("celestrak unreachable")
+
+    monkeypatch.setattr("engine.viz.passes.fetch_visible_catalog", _boom)
+    r = client.get("/api/passes?lat=12.97&lon=77.59")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["available"] is False
+    assert body["passes"] == []
+    assert "fresh orbital elements" in body["note"]
+
+
+def test_passes_bad_lat(client):
+    r = client.get("/api/passes?lat=99&lon=0")
+    assert r.status_code == 404
+
+
 def test_chat_with_scripted_model(client, monkeypatch):
     """POST /api/chat runs the agent; inject a scripted model to stay offline."""
     from agent import session as session_mod

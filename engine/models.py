@@ -417,3 +417,53 @@ class Star(BaseModel):
     ra: float = 0.0
     dec: float = 0.0
     g_mag: float = Field(default=0.0, description="Gaia G-band magnitude")
+
+
+# ============================================================
+# Phase 5.3 — visible-pass prediction ("what's passing over me?")
+# ============================================================
+
+
+class VisiblePass(BaseModel):
+    """One satellite pass visible to the naked eye from a location tonight.
+
+    A pass is the contiguous interval during which all three visibility
+    conditions hold: the satellite is above the elevation threshold, the
+    observer is in darkness (Sun below the twilight angle), and the satellite
+    is still sunlit (the classic satellite-flare geometry).
+    """
+
+    norad_id: int = Field(description="NORAD catalog number")
+    name: str = Field(description="Object display name (e.g. 'ISS (ZARYA)')")
+    start: datetime = Field(description="pass begins (UTC)")
+    max_elevation_time: datetime = Field(description="apex of the pass (UTC)")
+    end: datetime = Field(description="pass ends (UTC)")
+    max_elevation_deg: float = Field(description="highest elevation above the horizon (deg)")
+    elevation_start_deg: float = Field(description="elevation when the pass begins (deg)")
+    elevation_end_deg: float = Field(description="elevation when the pass ends (deg)")
+    azimuth_start_deg: float = Field(description="compass bearing at pass start (deg, 0=N)")
+    azimuth_apex_deg: float = Field(description="compass bearing at the apex (deg, 0=N)")
+    azimuth_end_deg: float = Field(description="compass bearing at pass end (deg, 0=N)")
+    direction_from: str = Field(description="compass point at start, e.g. 'NW'")
+    direction_to: str = Field(description="compass point at end, e.g. 'SE'")
+    range_km_at_max: float = Field(description="observer→satellite distance at apex (km)")
+    magnitude: float = Field(description="apparent magnitude estimate at apex (smaller = brighter)")
+    brightness_label: str = Field(description="plain-language brightness band")
+    object_blurb: str = Field(default="", description="one-line 'what is it' for the public")
+    look_instruction: str = Field(
+        default="", description="plain-language 'look there at this time' sentence"
+    )
+
+
+class PassesResponse(BaseModel):
+    """Tonight's visible passes for one observer — the /api/passes envelope."""
+
+    available: bool
+    latitude: float
+    longitude: float
+    date: str = Field(description="observer-local date the prediction is for (YYYY-MM-DD)")
+    night_start: datetime | None = Field(default=None, description="astronomical-darkness window start (UTC)")
+    night_end: datetime | None = Field(default=None, description="astronomical-darkness window end (UTC)")
+    max_tle_age_days: float = Field(default=0.0, description="oldest TLE used — honesty about prediction drift")
+    passes: list[VisiblePass] = Field(default_factory=list)
+    note: str = Field(default="", description="assumptions & caveats, in plain language")

@@ -101,5 +101,36 @@ export const GLOSSARY: Record<string, GlossaryTerm> = {
     shortDef: 'The pre-burn and post-burn orbits diverging at the burn epoch.',
     longDef: 'Selecting a burn option adds the maneuver track: the primary\'s orbit before the burn and its new orbit after, pulled apart at the burn epoch so you can watch the avoidance burn \"pull\" the two objects apart. The post-burn path is numerically propagated and re-screened by the engine — the post-burn miss distance on the maneuver cards is the geometry this scene draws.',
     knowledgeTopic: 'maneuver-planning'
+  },
+  pass: {
+    id: 'pass',
+    term: 'Satellite Pass',
+    shortDef: 'The minutes a satellite is visible crossing your sky.',
+    longDef: 'Satellites orbit the whole Earth every ~90 minutes, so they \"pass\" over any given spot several times a day. A pass becomes *visible* only when three things line up: the satellite is above the horizon, the ground is dark (the Sun is more than 6° below the horizon), and the satellite is still lit by the Sun. That last one is why you only see satellites at dusk and dawn — during the day the sky is too bright, and deep in the night the satellite is in Earth\'s shadow.',
+    knowledgeTopic: 'conjunction-assessment'
+  },
+  elevation: {
+    id: 'elevation',
+    term: 'Elevation',
+    shortDef: 'How high above the horizon an object is.',
+    longDef: 'Elevation is the angle between the horizon and an object in the sky, from 0° (on the horizon) to 90° (straight overhead). Below about 10° the atmosphere and buildings block the view, which is why OrbitWarden only reports passes above that.',
+  },
+  azimuth: {
+    id: 'azimuth',
+    term: 'Azimuth',
+    shortDef: 'The compass direction to look, measured from north.',
+    longDef: 'Azimuth is a compass bearing: 0° is north, 90° east, 180° south, 270° west. \"Look northwest (312°)\" means face northwest and tilt your head up — the satellite will be there.',
+  },
+  magnitude: {
+    id: 'magnitude',
+    term: 'Magnitude',
+    shortDef: 'How bright an object looks — smaller numbers are brighter.',
+    longDef: 'Astronomers measure brightness in magnitudes on an inverted scale: the brightest stars are magnitude 1, faint naked-eye stars are about 6, and the ISS can reach −3 — brighter than any star. The pass brightness is an estimate: it depends on how far away the satellite is and what angle the Sun is hitting it at. A satellite can be invisible one night and dazzling the next.',
+  },
+  twilight: {
+    id: 'twilight',
+    term: 'Twilight & Darkness',
+    shortDef: 'The sky is only dark enough for satellite-watching below the twilight angle.',
+    longDef: 'Even after the Sun sets, its light scatters through the atmosphere for a while — that\'s twilight. OrbitWarden counts the sky as \"dark\" once the Sun drops more than 6° below the horizon (nautical twilight), the standard threshold for satellite observers. Satellites themselves are usually still in sunlight, which is the whole trick: the ground is dark but the sky up there is bright.',
   }
 }

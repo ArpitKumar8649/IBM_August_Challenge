@@ -280,3 +280,48 @@ export interface ConjunctionCzml {
   note?: string
   document: Array<Record<string, unknown>>
 }
+
+// ============================================================
+// 5.3 — "What's passing over me?" (Tonight's Sky)
+// ============================================================
+
+/**
+ * One naked-eye satellite pass for a location tonight, as computed by the
+ * engine (engine/viz/passes.py). Times are ISO 8601 UTC with 'Z'.
+ */
+export interface VisiblePass {
+  norad_id: number
+  name: string
+  start: string
+  max_elevation_time: string
+  end: string
+  max_elevation_deg: number
+  elevation_start_deg: number
+  elevation_end_deg: number
+  azimuth_start_deg: number
+  azimuth_apex_deg: number
+  azimuth_end_deg: number
+  /** 16-point compass label at start, e.g. 'NW'. */
+  direction_from: string
+  direction_to: string
+  range_km_at_max: number
+  /** Apparent magnitude at apex — smaller is brighter. An estimate. */
+  magnitude: number
+  brightness_label: string
+  object_blurb: string
+  look_instruction: string
+}
+
+export interface PassesResponse {
+  available: boolean
+  latitude: number
+  longitude: number
+  /** Observer-local date (YYYY-MM-DD) the prediction is for. */
+  date: string
+  night_start: string | null
+  night_end: string | null
+  max_tle_age_days: number
+  passes: VisiblePass[]
+  /** Assumptions & caveats, in plain language. */
+  note: string
+}
