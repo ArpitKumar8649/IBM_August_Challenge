@@ -12,6 +12,11 @@
 - Autonomous execution — **human in the loop, always**; the tool recommends and explains, never acts
 - ML trained on historical CDM archives
 - Mobile apps / alerting integrations (email/SMS/push)
-- CesiumJS 3D globe — **stretch goal only**, unlocked if everything else ships by Aug 25; 2D Recharts plots are the shipping visualization
+
+**Shipped since pinning:** the CesiumJS 3D globe — the one stretch goal that
+unlocked early (5.1, Aug 2026) and is now the signature view, replacing the
+"2D Recharts only" assumption above. See
+[`docs/PHASE5_1_GLOBE_PLAN.md`](PHASE5_1_GLOBE_PLAN.md). Everything else in this
+list remains deliberately out.
 
 **Positioning:** decision support and education — never autonomous operations.

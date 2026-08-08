@@ -152,6 +152,41 @@ def test_bplane_not_found(client):
     assert r.status_code == 404
 
 
+def test_event_czml(client):
+    """The 3D-globe endpoint returns a JSON-clean CZML scene for the event."""
+    r = client.get("/api/events/1/czml")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["available"] is True
+    assert body["secondary_norad"] == 99998
+    assert body["tca"].endswith("Z")
+    doc = body["document"]
+    assert doc[0]["id"] == "document"
+    ids = {p["id"] for p in doc}
+    assert "orbit-primary" in ids and "orbit-secondary" in ids
+    assert "tca-miss-line" in ids and "covariance-ellipsoid" in ids
+    # Orbit positions are flat, finite, JSON-clean floats — 3 per sample.
+    cart = next(p["position"]["cartesian"] for p in doc if p["id"] == "orbit-primary")
+    assert len(cart) >= 6 and len(cart) % 3 == 0
+    assert all(isinstance(v, (int, float)) for v in cart)
+
+
+def test_event_czml_with_maneuver(client):
+    """Requesting a curated maneuver adds the pre/post-burn track to the scene.
+    The actual kind may differ (curated kinds can collide), but a track must exist."""
+    r = client.get("/api/events/1/czml?maneuver_kind=nominal")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["available"] is True
+    assert body["maneuver_kind"] in {"cheapest-safe", "nominal", "conservative"}
+    assert "maneuver-track" in {p["id"] for p in body["document"]}
+
+
+def test_event_czml_not_found(client):
+    r = client.get("/api/events/999/czml")
+    assert r.status_code == 404
+
+
 def test_chat_with_scripted_model(client, monkeypatch):
     """POST /api/chat runs the agent; inject a scripted model to stay offline."""
     from agent import session as session_mod

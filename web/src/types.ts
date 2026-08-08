@@ -250,3 +250,33 @@ export interface KnowledgeChunk {
   body: string
   score?: number
 }
+
+// ============================================================
+// 5.1 — 3D conjunction globe (CZML)
+// ============================================================
+
+/** The curated maneuver kinds the engine can compose into a CZML scene. */
+export type ManeuverKind = 'cheapest-safe' | 'nominal' | 'conservative'
+
+/**
+ * A CZML scene for one conjunction, as returned by GET /api/events/{id}/czml.
+ *
+ * Only the envelope fields are parsed by the UI (for the clock, camera, legend,
+ * and the "kind actually used" notice). `document` is opaque JSON handed to
+ * Cesium's CzmlDataSource whole — the frontend never reads orbit coordinates
+ * out of it (the engine is the only source of numbers).
+ */
+export interface ConjunctionCzml {
+  available: boolean
+  event_id: number
+  primary: string
+  secondary: string
+  secondary_norad: number
+  /** ISO 8601 with 'Z' — the TCA anchor for the Cesium clock and camera. */
+  tca: string
+  /** The kind actually composed; may differ from the requested kind (curated
+   *  kinds can collide) — the UI must show this verbatim. */
+  maneuver_kind: ManeuverKind | null
+  note?: string
+  document: Array<Record<string, unknown>>
+}

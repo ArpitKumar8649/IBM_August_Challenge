@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ScoredConjunction, SatelliteInfo, SpaceWeather, ManeuverOption } from '../types'
 import { fetchSatellite, fetchEvents, fetchWeather, fetchManeuvers, streamChat } from '../lib/api'
@@ -18,10 +18,25 @@ interface ChatMsg {
   text: string
 }
 
-type Tab = 'mission' | 'weather' | 'earth' | 'discovery' | 'solar' | 'health' | 'learn'
+type Tab = 'mission' | 'globe' | 'weather' | 'earth' | 'discovery' | 'solar' | 'health' | 'learn'
+
+/**
+ * The 3D globe ships as its own lazy chunk (Cesium is ~3 MB), loaded only when
+ * the tab opens — and prefetched on hover so the open is instant. The module is
+ * shared with the lazy() specifier below, so the prefetch and the render use
+ * the same bundle.
+ */
+const GlobePanel = lazy(() => import('../panels/GlobePanel'))
+const preloadGlobe = () => {
+  void import('../panels/GlobePanel').catch(() => {
+    /* a failed prefetch is not an error the user can act on — the real
+       import attempt happens again when the tab actually opens */
+  })
+}
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'mission', label: 'Mission Control' },
+  { id: 'globe', label: '3D View' },
   { id: 'weather', label: 'Space Weather' },
   { id: 'earth', label: 'Earth Observation' },
   { id: 'discovery', label: 'Discovery' },
@@ -38,6 +53,8 @@ export default function Dashboard() {
   const [live, setLive] = useState(false)
   const [selected, setSelected] = useState<ScoredConjunction | null>(null)
   const [maneuvers, setManeuvers] = useState<ManeuverOption[]>([])
+  /** One-shot "view this event in 3D" request, consumed by GlobePanel (Phase G). */
+  const [globeEventId, setGlobeEventId] = useState<number | null>(null)
   const [chat, setChat] = useState<ChatMsg[]>([
     { role: 'bot', text: 'OrbitWarden analyst online. Ask me about conjunctions, space weather, transients, exoplanets — anything about the space situation.' },
   ])
@@ -87,6 +104,15 @@ export default function Dashboard() {
 
   const riskTone = (score: number) => (score >= 60 ? 'danger' : score >= 40 ? 'warn' : 'good')
 
+  /** Switch to the 3D View tab with an event preselected (B-plane → globe link). */
+  const openGlobe = (eventId: number) => {
+    setGlobeEventId(eventId)
+    setTab('globe')
+    // The hover/focus prefetch only fires on the tab button — a direct "view in
+    // 3D" click bypasses it, so start the lazy chunk load right away.
+    preloadGlobe()
+  }
+
   return (
     <div className="dash">
       {/* ---------- top bar ---------- */}
@@ -111,6 +137,8 @@ export default function Dashboard() {
             key={t.id}
             className={`tab ${tab === t.id ? 'active' : ''}`}
             onClick={() => setTab(t.id)}
+            onMouseEnter={t.id === 'globe' ? preloadGlobe : undefined}
+            onFocus={t.id === 'globe' ? preloadGlobe : undefined}
           >
             {t.label}
           </button>
@@ -253,6 +281,18 @@ export default function Dashboard() {
 
                   <BPlanePlot event={selected} />
 
+                  <div className="detail-3d-link">
+                    <span>encounter plane · 2D — watch the same geometry converge in 3D</span>
+                    <button
+                      type="button"
+                      className="globe-btn"
+                      onClick={() => openGlobe(selected.event_id)}
+                      title="Switch to the 3D View tab with this event preselected"
+                    >
+                      view in 3D →
+                    </button>
+                  </div>
+
                   <div className="maneuvers">
                     <span className="eyebrow" style={{ fontSize: '0.6rem' }}>avoidance options</span>
                     <div className="man-grid">
@@ -302,6 +342,25 @@ export default function Dashboard() {
           </div>
         )}
 
+        {tab === 'globe' && (
+          <div className="tab-pad globe-pad">
+            <Suspense
+              fallback={
+                <div className="globe-suspense" role="status" aria-live="polite">
+                  <div className="globe-spinner" />
+                  <div className="globe-loading-text">loading 3D view…</div>
+                </div>
+              }
+            >
+              <GlobePanel
+                events={events}
+                live={live}
+                preselectEventId={globeEventId}
+                onPreselectConsumed={() => setGlobeEventId(null)}
+              />
+            </Suspense>
+          </div>
+        )}
         {tab === 'weather' && <div className="tab-pad"><SpaceWeatherPanel /></div>}
         {tab === 'earth' && <div className="tab-pad"><EarthObservationPanel /></div>}
         {tab === 'discovery' && <div className="tab-pad"><DiscoveryPanel /></div>}

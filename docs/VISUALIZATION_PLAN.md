@@ -48,15 +48,16 @@ this *understandable* without dumbing it down.
 | Exists | Notes |
 |--------|-------|
 | SVG ground-track map | `EarthObservationPanel.tsx` — equirectangular ground track, antimeridian-aware |
-| Tabbed dashboard | 6 panels (Mission Control, Space Weather, Earth Obs, Discovery, Solar System, Health) |
+| Tabbed dashboard | 7 tabs (Mission Control, 3D View, Space Weather, Earth Obs, Discovery, Solar System, Health) |
 | RSW geometry bars | In the event detail (radial/in-track/cross-track) |
 | Validated color palette | Color-blind-safe (dataviz skill) |
 | RAG knowledge base | 18 space-domain chunks — these ARE the explainers for 5.4 |
 | All 30 tools as API endpoints | The data layer is complete (`get_bplane` added by 5.2) |
 
-**What's missing (this plan):** 3D visualization (5.1), the professional B-plane
-diagram (5.2), the public "what's over me" feature (5.3), plain-language education
-(5.4), and immersive/sonification (5.5).
+**What's missing (this plan):** the public "what's over me" feature (5.3) and
+immersive/sonification (5.5). **Delivered:** 5.1 (CesiumJS 3D globe —
+`PHASE5_1_GLOBE_PLAN.md`, phases A–G), 5.2 (B-plane diagram), 5.4 (plain-language
+education).
 
 ---
 
@@ -70,7 +71,14 @@ diagram (5.2), the public "what's over me" feature (5.3), plain-language educati
 
 ---
 
-### 5.1 CesiumJS 3D globe with live orbits & conjunctions 🟡
+### 5.1 CesiumJS 3D globe with live orbits & conjunctions ✅ SHIPPED
+
+> **Status:** delivered in full — backend CZML composer + `GET /api/events/{id}/czml`
+> endpoint (46 backend tests), lazy "3D View" tab (Cesium never enters the page's
+> critical path), covariance/maneuver toggles, honest offline/error states,
+> reduced-motion + keyboard a11y, a CI `web` job, and a manual QA checklist. See
+> [`docs/PHASE5_1_GLOBE_PLAN.md`](PHASE5_1_GLOBE_PLAN.md) (phases A–G, all
+> delivered) and [`docs/PHASE5_1_QA_CHECKLIST.md`](PHASE5_1_QA_CHECKLIST.md).
 
 **What:** a 3D Earth (CesiumJS) showing the primary's orbit, nearby catalog
 objects, conjunction geometry, and the TCA moment — time-dynamic via CZML, with a
@@ -118,16 +126,19 @@ never is. → **Innovation, Challenge Fit, Technical Execution.**
 - `web/vite.config.ts` — configure Cesium's static assets (Cesium copies static
   files; Vite needs `vite-plugin-cesium` or manual asset config)
 
-**Implementation steps:**
-1. Add `cesium` + `vite-plugin-cesium`; get a minimal globe rendering (verify the
-   Ion token / imagery works).
-2. Build `czml.ts` / `engine/viz/czml.py`: convert a TLE → sampled positions → CZML
-   entity with a path. Verify a single orbit animates.
-3. Add the conjunction secondary + TCA marker. Verify two orbits + the TCA marker.
-4. Add the `/api/orbits/czml` endpoint; wire the `GlobePanel` tab.
-5. Add the maneuver visualization (pre/post-burn orbits).
-6. Add the covariance ellipsoid glyph.
-7. Add the timeline scrubbing to TCA.
+**Implementation steps (all done):**
+- [x] Add `cesium` + `vite-plugin-cesium`; get a minimal globe rendering (verify the
+  Ion token / imagery works).
+- [x] Build `engine/viz/czml.py`: convert a TLE → sampled positions → CZML entity
+  with a path. Verify a single orbit animates.
+- [x] Add the conjunction secondary + TCA marker. Verify two orbits + the TCA marker.
+- [x] Add the `GET /api/events/{id}/czml` endpoint; wire the `GlobePanel` tab
+  (the endpoint landed as `/api/events/{id}/czml` — per-event, matching the
+  B-plane and maneuver endpoints, rather than the planned `/api/orbits/czml`).
+- [x] Add the maneuver visualization (pre/post-burn orbits, with kind-substitution
+  transparency).
+- [x] Add the covariance ellipsoid glyph (client-side `entity.show` toggle).
+- [x] Add the timeline scrubbing to TCA (+ reduced-motion paused-clock default).
 
 **Testing:**
 - CZML generation: a TLE produces valid CZML with the expected sample count.

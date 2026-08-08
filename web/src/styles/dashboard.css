@@ -519,13 +519,13 @@
 
 .explainer-trigger {
   cursor: pointer;
-  border-bottom: 1px dotted var(--fg-dim);
+  border-bottom: 1px dotted var(--ink-3);
   transition: all 0.2s ease;
 }
 
 .explainer-trigger:hover {
-  color: var(--fg);
-  border-bottom-color: var(--fg);
+  color: var(--ink-1);
+  border-bottom-color: var(--ink-1);
 }
 
 .explainer-icon {
@@ -535,8 +535,8 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--bg-surface-2);
-  color: var(--fg-dim);
+  background: var(--bg-2);
+  color: var(--ink-2);
   font-size: 0.6rem;
   font-weight: 600;
   font-family: var(--font-mono);
@@ -546,7 +546,7 @@
 
 .explainer-trigger:hover .explainer-icon {
   background: var(--accent);
-  color: var(--bg);
+  color: var(--bg-0);
 }
 
 .explainer-popover {
@@ -556,7 +556,7 @@
   transform: translateX(-50%);
   width: 300px;
   z-index: 100;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 0 1px var(--border);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 0 1px var(--line);
   cursor: default;
 }
 
@@ -569,9 +569,9 @@
   transform: translateX(-50%) rotate(45deg);
   width: 10px;
   height: 10px;
-  background: var(--bg-surface);
-  border-top: 1px solid var(--border);
-  border-left: 1px solid var(--border);
+  background: var(--bg-1);
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
 }
 
 .explainer-head {
@@ -579,14 +579,14 @@
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 8px;
-  color: var(--fg);
+  color: var(--ink-1);
   font-size: 0.85rem;
 }
 
 .explainer-close {
   background: none;
   border: none;
-  color: var(--fg-dim);
+  color: var(--ink-3);
   cursor: pointer;
   font-size: 1.1rem;
   line-height: 1;
@@ -594,12 +594,12 @@
 }
 
 .explainer-close:hover {
-  color: var(--fg);
+  color: var(--ink-1);
 }
 
 .explainer-short {
   font-size: 0.85rem;
-  color: var(--fg);
+  color: var(--ink-1);
   margin-bottom: 8px;
   line-height: 1.4;
   font-weight: 500;
@@ -607,7 +607,7 @@
 
 .explainer-long {
   font-size: 0.8rem;
-  color: var(--fg-dim);
+  color: var(--ink-2);
   line-height: 1.5;
 }
 
@@ -765,4 +765,314 @@
   color: var(--ink-2);
   line-height: 1.6;
   font-size: 0.9rem;
+}
+
+/* ============================================================
+   5.1 — 3D conjunction globe (Globe3D scene renderer)
+   ============================================================ */
+
+.globe3d { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.globe3d-canvas { position: absolute; inset: 0; }
+.globe3d-canvas .cesium-widget canvas { outline: none; }
+
+/* loading / error overlays — sit above the Cesium canvas, match the theme */
+.globe-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(5, 7, 15, 0.25), rgba(5, 7, 15, 0.6));
+  backdrop-filter: blur(1.5px);
+}
+.globe-overlay.error { pointer-events: auto; background: rgba(5, 7, 15, 0.55); }
+
+.globe-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid rgba(99, 179, 255, 0.22);
+  border-top-color: var(--accent);
+  animation: globe-spin 0.9s linear infinite;
+}
+@keyframes globe-spin { to { transform: rotate(360deg); } }
+
+.globe-loading-text {
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  animation: globe-pulse 1.6s ease-in-out infinite;
+}
+@keyframes globe-pulse { 50% { opacity: 0.45; } }
+
+.globe-error-card {
+  max-width: 340px;
+  padding: 16px 20px;
+  background: linear-gradient(160deg, var(--bg-2), var(--bg-1));
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+}
+.globe-error-title {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--danger);
+  margin-bottom: 8px;
+}
+.globe-error-msg { font-size: 0.8rem; color: var(--ink-2); line-height: 1.5; }
+
+/* the Cesium timeline strip blends into the panel instead of fighting it */
+.globe3d .cesium-viewer-timelineContainer { left: 8px; right: 8px; }
+.globe3d .cesium-timeline-bar {
+  background: linear-gradient(90deg, rgba(99, 179, 255, 0.14), rgba(99, 179, 255, 0.02));
+}
+
+/* ============================================================
+   5.1 — GlobePanel (the "3D View" tab)
+   ============================================================ */
+
+.globe-pad { max-width: 1320px; }
+/* Suspense fallback while the lazy Cesium chunk loads */
+.globe-suspense {
+  height: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.globe-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* header */
+.globe-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.globe-title { display: flex; flex-direction: column; gap: 3px; }
+.globe-sub {
+  font-size: 0.64rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.globe-status { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.globe-chip-pulse { animation: globe-pulse 1.2s ease-in-out infinite; }
+
+/* toolbar */
+.globe-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+}
+.globe-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.66rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.globe-select {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink-1);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 6px 10px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.globe-select:focus { border-color: var(--accent); }
+
+/* segmented kind control (matches the B-plane's .bp-seg language) */
+.globe-seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.globe-seg-btn {
+  background: none;
+  border: none;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  padding: 0.4em 0.8em;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.globe-seg-btn:hover { color: var(--ink-1); }
+.globe-seg-btn.active { color: var(--accent); background: var(--accent-soft); }
+
+.globe-switch { cursor: pointer; }
+.globe-switch input { accent-color: var(--accent); cursor: pointer; }
+
+.globe-window input[type='range'] {
+  width: 130px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.globe-window-val { font-size: 0.68rem; color: var(--accent); min-width: 62px; }
+
+.globe-actions { display: flex; gap: 8px; margin-left: auto; }
+.globe-btn {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  padding: 0.5em 0.9em;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.globe-btn:hover { border-color: var(--accent); color: var(--accent); }
+.globe-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+/* the globe stage */
+.globe-body {
+  position: relative;
+  height: clamp(420px, 58vh, 760px);
+  background: #05070f;
+  transition: opacity 0.25s;
+}
+.globe-body.stale { opacity: 0.55; }
+.globe-body:fullscreen { height: 100vh; }
+
+/* honest empty/offline/error states — shown only when there is no scene */
+.globe-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+  background: linear-gradient(180deg, rgba(5, 7, 15, 0.2), rgba(5, 7, 15, 0.7));
+}
+.globe-empty-inner { display: flex; flex-direction: column; align-items: center; }
+.globe-empty-text {
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.globe-empty-card {
+  max-width: 360px;
+  padding: 20px 24px;
+  background: linear-gradient(160deg, var(--bg-2), var(--bg-1));
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+}
+.globe-empty-title {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--warn);
+  margin-bottom: 10px;
+}
+.globe-empty-card p { font-size: 0.8rem; color: var(--ink-2); line-height: 1.55; margin: 0 0 16px; }
+.globe-empty-card code {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--accent);
+}
+
+/* footer: legend + trust notes */
+.globe-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--line);
+}
+.globe-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 0;
+  padding: 0;
+}
+.globe-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.globe-key dt, .globe-key dd {
+  margin: 0;
+  padding: 0;
+  font-size: 0.66rem;
+  color: var(--ink-2);
+}
+.globe-swatch { width: 18px; height: 4px; border-radius: 2px; }
+
+/* keyboard focus — the same visible outline the B-plane figure uses */
+.globe-seg-btn:focus-visible, .globe-btn:focus-visible, .globe-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* motion preferences — WCAG 2.3.3: no auto-motion, no pulsing chrome */
+@media (prefers-reduced-motion: reduce) {
+  .globe-spinner, .globe-loading-text, .globe-chip-pulse { animation: none; }
+  .globe-body { transition: none; }
+  .globe-overlay { backdrop-filter: none; }
+}
+.globe-notice {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--warn);
+  margin: 0;
+}
+.globe-note {
+  font-size: 0.64rem;
+  color: var(--ink-3);
+  margin: 0;
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .globe-actions { margin-left: 0; }
+  .globe-window input[type='range'] { width: 96px; }
+}
+
+/* B-plane → globe link (Phase G): the 2D figure hands off to the 3D view. */
+.detail-3d-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+@media (max-width: 640px) {
+  .detail-3d-link { flex-direction: column; align-items: flex-start; }
 }

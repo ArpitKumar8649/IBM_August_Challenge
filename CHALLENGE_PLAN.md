@@ -101,7 +101,7 @@ Without the AI the product is a table of miss distances; with it, a decision-sup
 ### Architecture: three planes + a trust layer
 1. **Deterministic physics plane (Python):** the sole source of every number — SGP4 propagation, band pre-filtering, TCA refinement, event scoring, documented fixed-covariance Pc (assumption stated in UI), shoot-and-score maneuver grid. Nightly cached batch + on-demand single-satellite re-propagation.
 2. **AI judgment plane:** Granite on watsonx.ai as a strict tool-calling agent (LangChain/LangGraph). Never computes an orbit. Fallback model endpoint configured.
-3. **Presentation plane:** React + TypeScript dashboard — ranked event list, 2D TCA-geometry and maneuver-tradeoff plots (Recharts, v1), maneuver-card view, ask-the-analyst panel. **CesiumJS 3D globe = stretch goal only.**
+3. **Presentation plane:** React + TypeScript dashboard — ranked event list, 2D TCA-geometry and maneuver-tradeoff plots, maneuver-card view, ask-the-analyst panel. **CesiumJS 3D globe — shipped (5.1, Aug 2026)**, the one stretch goal that unlocked early.
 4. **Output-validation layer (between 2 and 3):** deterministic pydantic/regex checker re-verifies every figure in any AI product against engine output; blocks display on mismatch; logs all checks → the demo's "provably computed" claim.
 
 **Infra:** Postgres + pgvector (screening results, event history, agent transcripts → similar-encounter retrieval) · FastAPI · IBM Cloud Code Engine (serverless API + nightly batch) · IBM Bob as primary pair-programmer across all planes, usage logged for the README.
@@ -134,7 +134,7 @@ Band pre-filtering, vectorized SGP4, golden-section TCA refinement, event scorin
 Shoot-and-score maneuver grid (2–3 options, Δv + grams burned from user-supplied mass/Isp, verified post-burn miss distance) · Granite tool-calling agent: triage rationale, constraint-aware selection, maneuver-card drafting, what-if re-runs · output-validation layer with audit log · **by Aug 21: one event flows end-to-end from engine to validated maneuver card.**
 
 ### Week 4 (Aug 22–28) — dashboard, validation, deployment
-React dashboard (event list + rationales, 2D plots, storm banners, maneuver card, analyst panel) · **CDM_PUBLIC validation report**: replay 3–5 documented historical conjunctions, show OrbitWarden re-discovering each (one-page precision/recall-style report — converts "simplified Pc" from liability to measured claim) · Code Engine deployment with live demo URL · design-partner verdict from a real university CubeSat team. CesiumJS globe only if everything above is done by Aug 25.
+React dashboard (event list + rationales, 2D plots, storm banners, maneuver card, analyst panel) · **CDM_PUBLIC validation report**: replay 3–5 documented historical conjunctions, show OrbitWarden re-discovering each (one-page precision/recall-style report — converts "simplified Pc" from liability to measured claim) · Code Engine deployment with live demo URL · design-partner verdict from a real university CubeSat team. CesiumJS globe shipped (5.1) — the stretch goal unlocked ahead of schedule.
 
 ### Final days (Aug 29–31) — packaging only, no new features after Aug 28
 Final README (problem, solution, AI approach/architecture, theme, how IBM Bob was used) · ≤3-min demo video recorded/hosted · project page published · compliance check · **submit by Aug 30** so Aug 31 is pure buffer.
@@ -142,7 +142,7 @@ Final README (problem, solution, AI approach/architecture, theme, how IBM Bob wa
 ### Top risks & mitigations
 | Risk | Mitigation |
 |------|------------|
-| Over-scoping (all 3 judges' #1 concern) | Week 1 ships a thin slice (one satellite, ~2–3k-object subset, one maneuver card); 2D plots ship, 3D globe is stretch; Friday go/no-go cuts anything off the frozen MVP list |
+| Over-scoping (all 3 judges' #1 concern) | Week 1 shipped a thin slice (one satellite, ~2–3k-object subset, one maneuver card); 2D plots shipped, 3D globe shipped as the stretch (unlocked ahead of the checkpoint); Friday go/no-go cuts anything off the frozen MVP list |
 | Simplified collision probability mis-ranking | Rank on miss distance + Vrel + geometry; show Pc only from a documented fixed covariance with the assumption in the UI; CDM_PUBLIC replay as a measured accuracy claim |
 | LLM fabricating numbers on camera | Strict tool-calling contract + validation layer re-checking every figure; fallback model endpoint; pre-recorded what-if golden path |
 | Demo fragility | All live interactions run on cached events + fast single-satellite re-propagation; golden-path recording swappable instantly |

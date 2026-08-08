@@ -121,6 +121,18 @@ For a permanent public deployment:
 The codespace can also expose the running services publicly via `gh codespace
 ports visibility <port>:public` for a live URL during development.
 
+**3D globe deployment notes (5.1):**
+
+- The build **fails if the Cesium runtime is missing** — `npm run build` runs a
+  post-build gate (`web/scripts/check-cesium-assets.mjs`) asserting `dist/cesium/`
+  contains `Cesium.js`, `Workers/`, `Widgets/`, `Assets/`, `ThirdParty/` (the
+  `vite-plugin-cesium` copy). Ship the whole `web/dist` tree, not just the JS
+  bundles, or the globe breaks while the rest of the app still works.
+- Serve the globe over **HTTPS**: Cesium's web workers are strict about mixed
+  content, so the public URL must be `https://` (Code Engine serves TLS by
+  default — the failure mode to watch for is a plain-http custom domain or a
+  dev-tunnel port).
+
 ---
 
 ## Operational checklist

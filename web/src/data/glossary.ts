@@ -80,5 +80,26 @@ export const GLOSSARY: Record<string, GlossaryTerm> = {
     shortDef: 'The standard alert message for a close approach.',
     longDef: 'A standard format (CCSDS 508.0-B-1) used by space agencies and tracking networks to share information about an impending close approach, including miss distance, TCA, and collision probability.',
     knowledgeTopic: 'standards'
+  },
+  globe_3d: {
+    id: 'globe_3d',
+    term: '3D Conjunction Globe',
+    shortDef: 'A 3D view of the encounter in space, drawn straight from the engine.',
+    longDef: 'The 3D View tab renders the conjunction the way an operator sees it: both orbits animating on a scrubbable timeline, the miss line and relative-velocity arrow at TCA, the covariance ellipsoid, and the maneuver pre/post-burn track. The scene is an engine-composed CZML document — the browser only draws what the physics plane computed, never re-deriving orbit geometry — so the globe, the B-plane figure, and the event card always agree. CesiumJS, the same engine that powers NASA Eyes, drives the rendering.',
+    knowledgeTopic: 'conjunction-assessment'
+  },
+  covariance_ellipsoid: {
+    id: 'covariance_ellipsoid',
+    term: 'Covariance Ellipsoid',
+    shortDef: 'The 3D shape of where the secondary might actually be at TCA.',
+    longDef: 'Orbit predictions are never exact — tracking uncertainty grows between observations. The covariance ellipsoid is the 3D version of the B-plane\'s σ contours: the region that most likely contains the secondary at TCA, drawn around it at 1σ (scaled ×10 so it is visible against the orbit scale). A miss that passes through the ellipsoid is a different risk than one far outside it — this is exactly why the B-plane reports the miss in \"sigmas out\".',
+    knowledgeTopic: 'collision-probability'
+  },
+  maneuver_track: {
+    id: 'maneuver_track',
+    term: 'Maneuver Track',
+    shortDef: 'The pre-burn and post-burn orbits diverging at the burn epoch.',
+    longDef: 'Selecting a burn option adds the maneuver track: the primary\'s orbit before the burn and its new orbit after, pulled apart at the burn epoch so you can watch the avoidance burn \"pull\" the two objects apart. The post-burn path is numerically propagated and re-screened by the engine — the post-burn miss distance on the maneuver cards is the geometry this scene draws.',
+    knowledgeTopic: 'maneuver-planning'
   }
 }

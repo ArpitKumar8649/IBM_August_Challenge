@@ -286,7 +286,7 @@ This is the architectural move judges will remember. Design it airtight:
 
 ## 9. Deliberately-out list (pin in README Week 1)
 
-Full-covariance CDM-grade Pc · numerical propagation with drag/high-order gravity · finite-duration burns & attitude modeling · multi-satellite fleet scheduling · regulatory coordination filings · autonomous execution (human-in-the-loop only) · ML trained on CDM archives · mobile/alerting · CesiumJS 3D globe **until the Week-4 checkpoint passes** (2D Recharts plots are the shipping visualization).
+Full-covariance CDM-grade Pc · numerical propagation with drag/high-order gravity · finite-duration burns & attitude modeling · multi-satellite fleet scheduling · regulatory coordination filings · autonomous execution (human-in-the-loop only) · ML trained on CDM archives · mobile/alerting. ~~CesiumJS 3D globe~~ — the stretch goal **shipped** (5.1, Aug 2026) and is now the signature view (see `docs/PHASE5_1_GLOBE_PLAN.md`).
 
 New ideas go to a "roadmap" slide, not the codebase.
 
@@ -302,7 +302,7 @@ New ideas go to a "roadmap" slide, not the codebase.
 | 4.4 | Design partner | The university CubeSat team (outreach started Phase 0) runs the tool for a few days; capture their verdict + one requested change for the demo. | 0.5 d |
 | 4.5 | Golden path | Freeze a demo dataset (one screening night for ISS + a CubeSat, incl. one storm-flagged event and one replayed CDM). Pre-record the what-if segment against cached tool outputs — the demo's most failure-prone 55 s gets a guaranteed fallback. | 0.5 d |
 
-**Exit gate:** live URL works from a clean browser; validation report shows measured detection rate; partner verdict in hand; golden path recorded. CesiumJS globe only if all of the above shipped by Aug 25.
+**Exit gate:** live URL works from a clean browser; validation report shows measured detection rate; partner verdict in hand; golden path recorded. CesiumJS globe shipped (5.1) — the stretch goal unlocked ahead of schedule.
 
 ---
 
@@ -324,7 +324,7 @@ New ideas go to a "roadmap" slide, not the codebase.
 5. **How IBM Bob was used** — concrete examples from `BOB_LOG.md`: which modules Bob generated/iterated (engine, agent wiring, UI, tests), prompting patterns, iteration loops, time saved.
 
 **Demo video beat sheet (≤ 3:00):**
-`0:00` hook — catalog > 35 k objects, Starlink's thousands of burns/yr, a CubeSat team decides alone · `0:20` live dashboard — pick a real satellite, ranked 7-day events with AI one-liners · `0:50` deep dive — TCA geometry, SATCAT object card, storm-flag banner ("re-screen 24 h before TCA") · `1:30` the decision — operator states constraints, three verified options, maneuver card, live what-if ("delay 3 h?") · `2:25` architecture card — physics computes / AI judges / validated / built with IBM Bob · `2:45` impact — design-partner verdict, who this is for.
+`0:00` hook — catalog > 35 k objects, Starlink's thousands of burns/yr, a CubeSat team decides alone · `0:15` **the 3D convergence** — open the 3D View tab, watch the two orbits converge and the miss line snap in at the TCA moment (the signature view) · `0:45` live dashboard — pick a real satellite, ranked 7-day events with AI one-liners · `1:15` deep dive — TCA geometry, SATCAT object card, storm-flag banner ("re-screen 24 h before TCA") · `1:45` the decision — operator states constraints, three verified options, maneuver card, live what-if ("delay 3 h?") · `2:20` **the maneuver pull-apart** — replay the encounter in 3D with the burn applied and watch the pre/post-burn track pull the objects apart · `2:40` architecture card — physics computes / AI judges / validated / built with IBM Bob · `2:50` impact — design-partner verdict, who this is for.
 
 ---
 
@@ -363,7 +363,7 @@ New ideas go to a "roadmap" slide, not the codebase.
 | Demo / README / video | 3.0 |
 | **Total** | **≈ 28 person-days** |
 
-- **Solo:** tight but achievable — IBM Bob-assisted development realistically buys 1.5–2×; cut Cesium entirely, keep CDM report (cheap, high-credibility).
+- **Solo:** tight but achievable — IBM Bob-assisted development realistically buys 1.5–2×; the Cesium globe shipped as the 5.1 stretch; keep CDM report (cheap, high-credibility).
 - **2 people:** comfortable — engine lead (Phases 1–2 + harness) / agent+frontend lead (Phases 3–4), swap as needed.
 - **3–4 people:** parallel as the role split suggests; integration exercised from Week 3, never the final week.
 
@@ -373,7 +373,7 @@ New ideas go to a "roadmap" slide, not the codebase.
 
 | Risk | Mitigation |
 |------|------------|
-| Over-scoping (all judges' #1 concern) | Thin slice Week 1; 2D plots ship, 3D is stretch; Friday go/no-go cuts anything off the frozen list; DELIBERATELY_OUT pinned |
+| Over-scoping (all judges' #1 concern) | Thin slice Week 1; 2D plots shipped, 3D shipped as the stretch (unlocked ahead of the checkpoint); Friday go/no-go cuts anything off the frozen list; DELIBERATELY_OUT pinned |
 | Simplified Pc mis-ranks events | Rank on miss + Vrel + geometry; Pc displayed with stated assumption; CDM replay = measured accuracy claim |
 | LLM fabricates a number on camera | Numbers never transit the model (§7); server-composed cards; validator + audit log; pre-recorded what-if fallback |
 | Maneuver search intractable by Aug 21 | **Pivot gate:** ship triage/storm-aware analyst only (DragCast-shaped) — still top-tier |

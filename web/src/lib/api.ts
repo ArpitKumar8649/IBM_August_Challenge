@@ -17,6 +17,8 @@ import type {
   SpaceWeatherDetailed,
   SystemHealth,
   KnowledgeChunk,
+  ConjunctionCzml,
+  ManeuverKind,
 } from '../types'
 import {
   SAMPLE_EVENTS,
@@ -101,6 +103,128 @@ export async function fetchBPlane(
   return data?.available
     ? { data, live: true }
     : { data: sampleBPlane(event, realismFactor), live: false }
+}
+
+// ============================================================
+// 5.1 — 3D conjunction globe (CZML)
+// ============================================================
+
+/** CZML fetch options. `maneuverKind: 'none'` explicitly requests no track. */
+export interface ConjunctionCzmlOpts {
+  maneuverKind?: ManeuverKind | 'none'
+  windowMin?: number
+}
+
+const CZML_TIMEOUT_MS = 8000 // the scene can take ~1–3 s to compose (maneuver track)
+/** Cache capacity — exported so tests derive their eviction scenarios from it. */
+export const CZML_CACHE_MAX = 12
+
+/**
+ * Module-scope scene cache, keyed by the exact query used.
+ *
+ * Content toggles (kind / window) refetch; presentation toggles (covariance
+ * visibility) are client-side and never touch this. Failures are NOT cached, so
+ * Retry always re-hits the engine. LRU-ish: overflow evicts the oldest entry.
+ */
+const czmlCache = new Map<string, ConjunctionCzml>()
+
+/** Drop every cached scene — e.g. after the backend re-screens an event. */
+export function clearConjunctionCzmlCache(): void {
+  czmlCache.clear()
+}
+
+function czmlUrl(eventId: number, opts: ConjunctionCzmlOpts): string {
+  const params = new URLSearchParams()
+  if (opts.maneuverKind && opts.maneuverKind !== 'none') {
+    params.set('maneuver_kind', opts.maneuverKind)
+  }
+  if (opts.windowMin !== undefined) {
+    params.set('window_min', String(opts.windowMin))
+  }
+  const qs = params.toString()
+  return `/api/events/${eventId}/czml${qs ? `?${qs}` : ''}`
+}
+
+/**
+ * A reachable engine answered with an error (4xx/5xx, or a scene marked
+ * `available: false`). The message carries the backend's own words — the
+ * `detail` of the HTTP error, or the envelope's `note` — so the panel can show
+ * a real error state ("event 999 not found", "no feasible maneuver option…")
+ * instead of a misleading offline card for a backend that is actually up.
+ */
+export class ConjunctionCzmlError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ConjunctionCzmlError'
+  }
+}
+
+/**
+ * Fetch the CZML scene for one conjunction (Phase 5.1 — 3D globe).
+ *
+ * - Resolves the scene when the engine composed one.
+ * - Throws {@link ConjunctionCzmlError} when the engine is reachable but
+ *   answered with an error (HTTP error, or `available: false`) — the message
+ *   is the backend's `detail` / `note`.
+ * - Resolves `null` when the backend is unreachable, the request was aborted,
+ *   or the body was not a usable scene — the caller's stale-guard decides.
+ *
+ * There is deliberately NO sample fallback: a fabricated orbit would be a
+ * fabricated number, so the caller shows an honest offline state instead. Pass
+ * an AbortSignal to cancel a superseded request (stale-response guard); a
+ * timeout (8 s) is applied regardless. Failures are never cached, so Retry
+ * always re-hits the engine.
+ */
+export async function fetchConjunctionCzml(
+  eventId: number,
+  opts: ConjunctionCzmlOpts = {},
+  signal?: AbortSignal,
+): Promise<ConjunctionCzml | null> {
+  // Already-cancelled callers never touch the network — checked BEFORE the cache
+  // so abort semantics are uniform regardless of what is cached.
+  if (signal?.aborted) return null
+
+  const url = czmlUrl(eventId, opts)
+  const cached = czmlCache.get(url)
+  if (cached) return cached
+
+  // Combine the caller's abort signal with a hard timeout.
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(new DOMException('timeout', 'TimeoutError')), CZML_TIMEOUT_MS)
+  const onExternalAbort = () => controller.abort(signal?.reason)
+  signal?.addEventListener('abort', onExternalAbort, { once: true })
+
+  try {
+    const res = await fetch(url, { signal: controller.signal })
+    if (!res.ok) {
+      // FastAPI answers 4xx/5xx with {"detail": "…"} — surface the message.
+      let detail: string | null = null
+      try {
+        const errBody = (await res.json()) as { detail?: unknown }
+        if (typeof errBody?.detail === 'string' && errBody.detail) detail = errBody.detail
+      } catch {
+        /* non-JSON error body — fall back to the HTTP status */
+      }
+      throw new ConjunctionCzmlError(detail ?? `engine error (HTTP ${res.status})`)
+    }
+    const body = (await res.json()) as ConjunctionCzml
+    if (!body || body.available !== true) {
+      // available:false is still an engine answer — carry its note when present.
+      throw new ConjunctionCzmlError(body?.note ?? 'the engine could not compose this scene')
+    }
+    czmlCache.set(url, body)
+    if (czmlCache.size > CZML_CACHE_MAX) {
+      const oldest = czmlCache.keys().next().value
+      if (oldest !== undefined) czmlCache.delete(oldest)
+    }
+    return body
+  } catch (err) {
+    if (err instanceof ConjunctionCzmlError) throw err
+    return null // network error, timeout, or abort — caller's stale-guard decides
+  } finally {
+    clearTimeout(timeout)
+    signal?.removeEventListener('abort', onExternalAbort)
+  }
 }
 
 // ============================================================

@@ -478,6 +478,91 @@ class AgentTools:
             "cdm": cdm_text,
         }
 
+    # -- Phase 5.1: 3D conjunction globe --------------------------------------
+
+    def get_conjunction_czml(
+        self,
+        event_id: int,
+        maneuver_kind: str | None = None,
+        window_min: float = 45.0,
+    ) -> dict:
+        """CZML document for the 3D conjunction globe — the full scene.
+
+        Composes the primary and secondary orbits over ±``window_min`` around TCA,
+        the TCA moment (points, miss line, relative-velocity arrow), the
+        covariance ellipsoid, and — when ``maneuver_kind`` is given (one of the
+        curated kinds: cheapest-safe / nominal / conservative) — the pre/post-burn
+        maneuver track. The document is consumed by the frontend's CesiumJS globe
+        (web/src/viz/Globe3D.tsx) via GET /api/events/{id}/czml.
+
+        If the requested kind is not the one the engine tagged as best (the curated
+        kinds can collide — the cheapest-safe option is often also the most
+        miss-per-gram), the best available option is used and its actual kind is
+        reported in the response. Raises ValueError only when no feasible burn
+        exists at all.
+
+        Deliberately NOT exposed to the model as an agent tool: a CZML document is
+        a large visualization payload, not a number the analyst should reason
+        about. The endpoint calls this directly.
+        """
+        window_min = max(10.0, min(float(window_min), 120.0))  # 10–120 min
+        e = self._event(event_id)
+        secondary = self.ctx.catalog_by_id.get(e.secondary_norad)
+        if secondary is None:
+            raise ValueError(f"secondary {e.secondary_norad} not in catalog")
+        state = self._inertial_state_at_tca(e)
+
+        option = None
+        if maneuver_kind is not None:
+            options = search_maneuvers(
+                e.tca,
+                state.r_primary,
+                state.v_primary,
+                state.r_secondary,
+                constraints=ManeuverConstraints(min_post_burn_miss_km=10.0),
+                mass_kg=self.ctx.mass_kg,
+                isp_s=self.ctx.isp_s,
+            )
+            curated = curated_options(options)
+            option = next((o for o in curated if o.kind == maneuver_kind), None)
+            if option is None and curated:
+                # The curated kinds can collide (the cheapest-safe option is often
+                # also the most miss-per-gram), so fall back to the best available
+                # option and report what was actually used.
+                option = curated[0]
+                maneuver_kind = option.kind
+            if option is None:
+                raise ValueError(
+                    f"no feasible maneuver option for event {event_id} (all burns miss the 10 km target)"
+                )
+
+        from engine.viz.czml import event_czml_document
+
+        doc = event_czml_document(
+            primary=self.ctx.primary,
+            secondary=secondary,
+            state=state,
+            event=e,
+            maneuver_option=option,
+            window_min=window_min,
+        )
+        if doc is None:
+            return {
+                "available": False,
+                "event_id": event_id,
+                "note": "primary orbit failed to propagate — cannot build the 3D scene",
+            }
+        return {
+            "available": True,
+            "event_id": event_id,
+            "primary": self.ctx.primary.name,
+            "secondary": secondary.name,
+            "secondary_norad": secondary.norad_id,
+            "tca": e.tca.isoformat().replace("+00:00", "Z"),
+            "maneuver_kind": maneuver_kind,
+            "document": doc,
+        }
+
     def query_knowledge_base(self, query: str, k: int = 3) -> dict:
         """Retrieve relevant space-domain knowledge for a question (RAG).
 

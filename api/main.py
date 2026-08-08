@@ -255,6 +255,24 @@ def create_app(ctx: ToolContext, client: WatsonxClient | None = None) -> FastAPI
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc))
 
+    @app.get("/api/events/{event_id}/czml")
+    def event_czml(
+        event_id: int,
+        maneuver_kind: str | None = None,
+        window_min: float = 45.0,
+    ):
+        """CZML document for the 3D conjunction globe (5.1) — the full scene.
+
+        Both orbits over ±window_min around TCA, the TCA moment (points, miss
+        line, relative-velocity arrow), the covariance ellipsoid, and optionally
+        the pre/post-burn maneuver track (maneuver_kind = cheapest-safe |
+        nominal | conservative). Consumed by web/src/viz/Globe3D.tsx.
+        """
+        try:
+            return tools.get_conjunction_czml(event_id, maneuver_kind, window_min)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+
     @app.get("/api/events/{event_id}/cdm")
     def cdm_message(event_id: int):
         try:
